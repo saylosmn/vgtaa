@@ -662,6 +662,8 @@ function public_config(): array
         'premium_days'       => PREMIUM_DAYS,
         'tournament_fee'     => TOURNAMENT_FEE,
         'tournament_split'   => TOURNAMENT_SPLIT,
+        'tournament_rake'    => TOURNAMENT_RAKE,
+        'daily_winner_cap'   => DAILY_WINNER_CAP,
         'referral_bonus'     => REFERRAL_BONUS,
         'referral_unlock'    => REFERRAL_UNLOCK,
         'min_withdrawal'     => MIN_WITHDRAWAL,
@@ -2233,8 +2235,9 @@ function a_tournament_join(): never
             $balance = credit((int)$me['id'], -$fee, 'tournament_fee', 'Тэмцээний хураамж (' . $today . ')', (int)$t['id']);
         }
         q("INSERT INTO tournament_entries (tournament_id, user_id, fee_paid, score, joined_at) VALUES (?, ?, ?, 0, NOW())", [$t['id'], $me['id'], $fee]);
-        q("UPDATE tournaments SET participant_count = participant_count + 1, prize_pool = prize_pool + ? WHERE id = ?", [$fee, $t['id']]);
-        $pool = (int)$t['prize_pool'] + $fee;
+        $toPool = $fee - intdiv($fee * max(0, min(100, (int)TOURNAMENT_RAKE)), 100);
+        q("UPDATE tournaments SET participant_count = participant_count + 1, prize_pool = prize_pool + ? WHERE id = ?", [$toPool, $t['id']]);
+        $pool = (int)$t['prize_pool'] + $toPool;
         $p = split_prizes($pool, 3);
         q("UPDATE tournaments SET first_prize = ?, second_prize = ?, third_prize = ? WHERE id = ?", [$p[0] ?? 0, $p[1] ?? 0, $p[2] ?? 0, $t['id']]);
         return ['balance' => $balance, 'fee' => $fee];

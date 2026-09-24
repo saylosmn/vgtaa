@@ -90,19 +90,20 @@ define('REQUIRE_VALID_WORD', false);// true бол зөвхөн толь бич�
 define('PRACTICE_DAILY_FREE', 3);   // Энгийн хэрэглэгч өдөрт хэдэн дасгал тоглох вэ (Premium = хязгааргүй)
 
 /* ── Мөнгөн шагнал ────────────────────────────────────────────────── */
-define('REWARD_AMOUNT', 5000);      // Өдрийн үгийг таасан шагнал (₮)
+define('REWARD_AMOUNT', 500);       // Өдрийн үгийг таасан шагнал (₮)
 /* Оролдлогоос хамаарсан шагнал. Хоосон бол бүгд REWARD_AMOUNT.
  * Жишээ: [1 => 8000, 2 => 6000, 3 => 5000, 4 => 3000, 5 => 2000] */
-define('REWARD_BY_ATTEMPT', []);
-define('PREMIUM_MULTIPLIER', 2);    // Premium хэрэглэгчийн шагналын үржвэр
+define('REWARD_BY_ATTEMPT', [1 => 2000, 2 => 1000]);
+define('PREMIUM_MULTIPLIER', 1);    // Premium хэрэглэгчийн шагналын үржвэр (1 = үржүүлэхгүй)
 /* Өдөрт мөнгөн шагнал авах хүний дээд тоо (0 = хязгааргүй).
  * Хэн нэгэн хариултыг олон нийтэд тараавал зардал хэт өсөхөөс хамгаална. */
-define('DAILY_WINNER_CAP', 0);
+define('DAILY_WINNER_CAP', 10);
 
 define('PREMIUM_PRICE', 20000);
 define('PREMIUM_DAYS', 30);
 define('TOURNAMENT_FEE', 5000);
 define('TOURNAMENT_SPLIT', [50, 30, 20]);   // 1, 2, 3-р байрны хувь (%)
+define('TOURNAMENT_RAKE', 20);              // Хураамжийн хэдэн хувь сайтад үлдэх вэ (%). Үлдсэн нь шагналын санд
 define('REFERRAL_BONUS', 2000);             // Урьсан найз анх удаа таахад өгөх урамшуулал
 define('REFERRAL_UNLOCK', 15);              // Мөнгө татахад шаардлагатай баталгаажсан найз
 define('MIN_WITHDRAWAL', 20000);

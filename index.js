@@ -176,7 +176,7 @@
   const DEFAULT_CONFIG = {
     google_client_id: '399324970310-96ddmej2nge9r0qij35dr5eum2cll6g5.apps.googleusercontent.com',
     app_url: location.origin + location.pathname.replace(/[^/]*$/, ''),
-    max_attempts: 5, reward_amount: 5000, reward_by_attempt: {}, premium_multiplier: 2, premium_price: 20000,
+    max_attempts: 5, reward_amount: 500, reward_by_attempt: {}, premium_multiplier: 1, premium_price: 20000,
     premium_days: 30, tournament_fee: 5000, tournament_split: [50, 30, 20], referral_bonus: 2000,
     referral_unlock: 15, min_withdrawal: 20000, max_withdrawal: 2000000, practice_daily_free: 3,
     require_valid_word: false, banks: {},
@@ -642,11 +642,11 @@
       const split = (c.tournament_split || []).join('/');
       const items = [
         ['Өдрийн үг хэзээ солигдох вэ?', 'Монголын цагаар шөнийн 00:00-д. Хүн бүрт ӨӨР санамсаргүй үг ирнэ (урт нь ижил) — тиймээс хариултаа найздаа хэлээд нэмэргүй 😉'],
-        ['Шагнал хэд вэ?', `Өдрийн үгийг таавал ${money(c.reward_amount)}. Premium хэрэглэгч ${c.premium_multiplier} дахин их шагнал авна.`],
+        ['Шагнал хэд вэ?', `Өдрийн үгийг таавал ${money(c.reward_amount)}${c.reward_by_attempt && c.reward_by_attempt[1] ? ` (1-р оролдлогоор бол ${money(c.reward_by_attempt[1])})` : ''}.${c.daily_winner_cap > 0 ? ` Мөнгөн шагналыг өдөр бүр эхний ${c.daily_winner_cap} хүн авна.` : ''}${c.premium_multiplier > 1 ? ` Premium хэрэглэгч ${c.premium_multiplier} дахин их шагнал авна.` : ''}`],
         ['Мөнгөө яаж авах вэ?', `Хэтэвч хэсгээс банкны данс руугаа татна. Хамгийн багадаа ${money(c.min_withdrawal)}, мөн ${c.referral_unlock} найзаа урьж баталгаажуулсан байх шаардлагатай. Ажлын 1–3 өдөрт шилжүүлнэ.`],
         ['Найз урих гэж юу вэ?', `Өөрийн холбоосоо найздаа илгээ. Найз тань бүртгүүлээд анх удаа үг таамагц танд ${money(c.referral_bonus)} урамшуулал орно.`],
-        ['Тэмцээн яаж явагддаг вэ?', `${money(c.tournament_fee)} хураамж төлж, өдрийн үгээ таахаас өмнө нэгдэнэ. Хамгийн цөөн оролдлогоор, хамгийн эрт таасан 3 хүн сангаа ${split} хувиар хуваана.`],
-        ['Premium гэж юу вэ?', `Сард ${money(c.premium_price)}. ${c.premium_multiplier}× шагнал, тэмцээнд үнэгүй оролцох, дасгалыг хязгааргүй тоглох эрх.`],
+        ['Тэмцээн яаж явагддаг вэ?', `${money(c.tournament_fee)} хураамж төлж, өдрийн үгээ таахаас өмнө нэгдэнэ. Хамгийн цөөн оролдлогоор, хамгийн эрт таасан 3 хүн сангаа ${split} хувиар хуваана.${c.tournament_rake > 0 ? ` Хураамжийн ${c.tournament_rake}% нь үйлчилгээний шимтгэл.` : ''}`],
+        ['Premium гэж юу вэ?', `Сард ${money(c.premium_price)}. ${c.premium_multiplier > 1 ? `${c.premium_multiplier}× шагнал, ` : ''}тэмцээнд үнэгүй оролцох, дасгалыг хязгааргүй тоглох эрх.`],
       ];
       $('#faq-list').innerHTML = html`${items.map(([q, a]) => html`<details class="faq-item"><summary>${q}${icon('right', 'chev')}</summary><p>${a}</p></details>`)}`;
     },
@@ -1201,9 +1201,9 @@
       const prem = App.user && App.user.is_premium;
       m.set(html`
         ${showGame ? this.answerBlock(g.answer, g.definition, g.won) : ''}
-        ${fresh && reward > 0 ? html`<div class="reward-pop"><span class="reward-amt">+${money(reward)}</span>${prem ? html`<span class="chip chip-gold">${icon('crown')} Premium ×${App.config.premium_multiplier}</span>` : ''}<span class="muted">хэтэвчинд орлоо</span></div>` : ''}
+        ${fresh && reward > 0 ? html`<div class="reward-pop"><span class="reward-amt">+${money(reward)}</span>${prem && App.config.premium_multiplier > 1 ? html`<span class="chip chip-gold">${icon('crown')} Premium ×${App.config.premium_multiplier}</span>` : ''}<span class="muted">хэтэвчинд орлоо</span></div>` : ''}
         ${fresh && capped ? html`<div class="note">Өнөөдрийн мөнгөн шагналын квот дууссан байна. Маргааш эрт тоглоорой!</div>` : ''}
-        ${fresh && g.won && !prem && reward > 0 ? html`<a class="upsell" href="#/premium" data-close>${icon('crown')}<span>Premium бол энэ шагнал <b>${money(reward * App.config.premium_multiplier)}</b> байх байсан</span>${icon('right')}</a>` : ''}
+        ${fresh && g.won && !prem && reward > 0 && App.config.premium_multiplier > 1 ? html`<a class="upsell" href="#/premium" data-close>${icon('crown')}<span>Premium бол энэ шагнал <b>${money(reward * App.config.premium_multiplier)}</b> байх байсан</span>${icon('right')}</a>` : ''}
         ${statTiles(s)}
         <h3 class="sub-h">Оролдлогын тархалт</h3>
         ${distChart(s.distribution, g.mode === 'daily' && g.won ? g.rows.length : 0)}
@@ -1889,7 +1889,7 @@
       const u = App.user, c = App.config;
       const short = Math.max(0, c.premium_price - u.balance);
       const perks = [
-        ['trophy', `${c.premium_multiplier}× шагнал`, `Өдрийн үг таавал ${money(c.reward_amount * c.premium_multiplier)}`],
+        c.premium_multiplier > 1 && ['trophy', `${c.premium_multiplier}× шагнал`, `Өдрийн үг таавал ${money(c.reward_amount * c.premium_multiplier)}`],
         ['target', 'Тэмцээнд үнэгүй', `${money(c.tournament_fee)} хураамжгүйгээр оролцоно`],
         ['history', 'Дасгал хязгааргүй', `Энгийн хэрэглэгч өдөрт ${c.practice_daily_free}`],
         ['crown', 'Алтан тэмдэг', 'Жагсаалт, профайлд алтан хүрээ'],
@@ -1901,7 +1901,7 @@
           <div class="prem-price">${money(c.premium_price)} <small>/ ${c.premium_days} хоног</small></div>
           ${u.is_premium ? html`<span class="chip chip-gold">${icon('check')} Идэвхтэй · ${fmtDate(u.premium_expires_at)} хүртэл</span>` : ''}
         </div>
-        <ul class="perks">${perks.map(([ic, t, s]) => html`<li><span class="perk-ic">${icon(ic)}</span><span><b>${t}</b><small>${s}</small></span></li>`)}</ul>
+        <ul class="perks">${perks.filter(Boolean).map(([ic, t, s]) => html`<li><span class="perk-ic">${icon(ic)}</span><span><b>${t}</b><small>${s}</small></span></li>`)}</ul>
         <div class="card">
           <div class="pay-row"><span class="muted">Таны үлдэгдэл</span><b>${money(u.balance)}</b></div>
           <div class="pay-row"><span class="muted">Төлбөр</span><b>− ${money(c.premium_price)}</b></div>
