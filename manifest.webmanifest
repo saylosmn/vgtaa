@@ -1,0 +1,19 @@
+{
+  "name": "Үг Таа — Монгол үг таах тоглоом",
+  "short_name": "Үг Таа",
+  "description": "Өдөр бүр шинэ монгол үгийг тааж, шагнал ав.",
+  "lang": "mn",
+  "start_url": "./#/play",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0f1f",
+  "theme_color": "#0a0f1f",
+  "categories": ["games", "education", "entertainment"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

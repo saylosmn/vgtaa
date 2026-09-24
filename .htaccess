@@ -1,0 +1,66 @@
+# ============================================================
+#  Үг Таа — .htaccess (htdocs хавтсанд байрлуулна)
+# ============================================================
+
+DirectoryIndex index.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Authorization header-ийг PHP-д дамжуулна (InfinityFree үүнийг хасдаг)
+  RewriteCond %{HTTP:Authorization} .+
+  RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+  # .git, .env гэх мэт далд файл/хавтсыг хаана
+  RewriteRule (^|/)\.(?!well-known/) - [F,L]
+
+  # Vercel/Docker-ийн туслах хавтсууд энд хэрэггүй
+  RewriteRule ^(api|deploy)/ - [F,L]
+</IfModule>
+
+<IfModule mod_setenvif.c>
+  SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
+</IfModule>
+
+# Нууц/туслах файлуудыг вэбээс шууд уншихыг хаана
+<FilesMatch "^(config\.php|config\.secret\.php|debug\.php|schema\.sql|README\.md|Dockerfile|render\.yaml|.*\.(sql|md|log|bak|zip|sh|py|yaml))$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+<IfModule mod_mime.c>
+  AddType application/manifest+json .webmanifest
+  AddType image/svg+xml .svg
+  AddType text/javascript .js
+</IfModule>
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+
+  # Google нэвтрэлтийн popup ажиллахын тулд "same-origin-allow-popups" байх ёстой
+  <FilesMatch "\.html$">
+    Header always set Cross-Origin-Opener-Policy "same-origin-allow-popups"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+
+  # CSS/JS нь ?v=... хувилбартай тул удаан кэшлэж болно
+  <FilesMatch "\.(css|js|png|svg|webmanifest)$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+  <FilesMatch "^sw\.js$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript application/json application/manifest+json image/svg+xml
+</IfModule>
+

@@ -1,0 +1,29 @@
+# Render Blueprint — Dashboard → New → Blueprint → энэ repo-г сонгоно.
+# DB_* утгуудыг гадны MySQL-ээс (TiDB Cloud Serverless, Aiven...) авч оруулна.
+# APP_URL-ийг Render өөрөө олно (RENDER_EXTERNAL_URL). Өөрийн домэйн холбовол APP_URL нэмнэ.
+services:
+  - type: web
+    name: ugtaa
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: DB_HOST            # TiDB: gateway01.ap-southeast-1.prod.aws.tidbcloud.com
+        sync: false
+      - key: DB_PORT            # TiDB: 4000, Aiven: самбарт бичигдсэн порт
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASS
+        sync: false
+      - key: DB_SSL             # TiDB Cloud, Aiven хоёулаа SSL шаарддаг
+        value: "1"
+      - key: DB_SSL_CA_PEM      # Зөвхөн Aiven: CA сертификатын агуулга. TiDB бол хоосон үлдээ.
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SETUP_KEY
+        generateValue: true

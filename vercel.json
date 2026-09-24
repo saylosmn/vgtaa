@@ -1,0 +1,44 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["sin1"],
+  "functions": {
+    "api/*.php": {
+      "runtime": "vercel-php@0.7.4",
+      "maxDuration": 15
+    }
+  },
+  "routes": [
+    {
+      "src": "/(.*)",
+      "headers": {
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()"
+      },
+      "continue": true
+    },
+    {
+      "src": "/(index\\.html)?",
+      "headers": {
+        "Cache-Control": "no-cache",
+        "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+        "X-Frame-Options": "SAMEORIGIN"
+      },
+      "continue": true
+    },
+    { "src": "/sw\\.js", "headers": { "Cache-Control": "no-cache" }, "continue": true },
+    {
+      "src": "/(index\\.css|index\\.js|manifest\\.webmanifest|icons/.*)",
+      "headers": { "Cache-Control": "public, max-age=604800" },
+      "continue": true
+    },
+    { "src": "/api\\.php", "dest": "/api/index.php" },
+    { "src": "/setup\\.php", "dest": "/api/setup.php" },
+    {
+      "src": "/(.*\\.(php|sql|md|yaml|yml|sh|lock|log)|Dockerfile|deploy/.*|\\..*)",
+      "status": 404,
+      "dest": "/api/index.php?action=__not_found"
+    },
+    { "handle": "filesystem" }
+  ]
+}

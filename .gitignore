@@ -1,0 +1,4 @@
+.claude/
+*.log
+*.zip
+config.secret.php

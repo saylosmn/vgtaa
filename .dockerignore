@@ -1,0 +1,10 @@
+.git
+.gitignore
+.claude
+config.secret.php
+README.md
+*.zip
+*.log
+vercel.json
+.vercelignore
+.gitattributes
