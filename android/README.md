@@ -29,7 +29,9 @@ Kotlin, нэг Activity. Тоглоом, хэтэвч, админ зэрэг б�
 
 Үүнийг хийхгүй бол данс сонгосны дараа «Апп Google Cloud-д бүртгэгдээгүй байна» гэсэн алдаа гарна.
 
-1. [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → вэб client ID (`399324970310-…`) байгаа **тэр project** → **Create credentials → OAuth client ID → Android**.
+1. [Google Cloud Console](https://console.cloud.google.com/apis/credentials?project=399324970310) → вэб client ID (`399324970310-…`) байгаа **тэр project** → **Create credentials → OAuth client ID → Android**.
+   - Энэ project-ийг **эзэмшдэг Google дансаар** нэвтэрнэ. saylosnn1@gmail.com-д энэ project-д хандах эрх алга (2026-09-27-нд шалгасан).
+   - Google Cloud 2026-09-01-ээс эхлэн **2 шаттай баталгаажуулалт (2SV)** шаарддаг. Асаагаагүй бол «Google Cloud access blocked» гэж гарна.
 2. **Package name:** `mn.ugtaa.app`
 3. **SHA-1:** Түлхүүр бүрт тус тусдаа Android client үүсгэнэ:
 
@@ -44,7 +46,7 @@ Kotlin, нэг Activity. Тоглоом, хэтэвч, админ зэрэг б�
 
 ## Холбоос шууд апп-д нээгдэх (App Links)
 
-Vercel/Render-ийн орчны хувьсагчид гарын үсгийн **SHA-256** хээг нэмнэ:
+✅ Vercel-д тохируулсан (2026-09-27), Google-ийн шалгалтаар `linked: true`. Render эсвэл өөр хостинг ашиглавал орчны хувьсагчид гарын үсгийн **SHA-256** хээг нэмнэ:
 
 | Хувьсагч | Утга |
 |---|---|
