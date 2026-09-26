@@ -23,6 +23,8 @@ services:
         value: "1"
       - key: DB_SSL_CA_PEM      # Зөвхөн Aiven: CA сертификатын агуулга. TiDB бол хоосон үлдээ.
         sync: false
+      - key: ADMIN_EMAILS       # Энэ Gmail-ээр нэвтэрсэн хүн автоматаар админ болно (олон бол таслалаар)
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: SETUP_KEY

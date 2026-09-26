@@ -23,7 +23,7 @@ DirectoryIndex index.html
 </IfModule>
 
 # Нууц/туслах файлуудыг вэбээс шууд уншихыг хаана
-<FilesMatch "^(config\.php|config\.secret\.php|debug\.php|schema\.sql|README\.md|Dockerfile|render\.yaml|.*\.(sql|md|log|bak|zip|sh|py|yaml))$">
+<FilesMatch "^(config\.php|config\.secret\.php|migrate\.php|debug\.php|schema\.sql|README\.md|Dockerfile|render\.yaml|.*\.(sql|md|log|bak|zip|sh|py|yaml))$">
   <IfModule mod_authz_core.c>
     Require all denied
   </IfModule>

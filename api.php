@@ -20,7 +20,7 @@
  */
 declare(strict_types=1);
 
-const APP_VERSION = '7.3.0';
+const APP_VERSION = '7.4.0';
 
 define('VGTAA', true);
 require __DIR__ . '/config.php';
@@ -199,6 +199,39 @@ function tx(callable $fn): mixed
         if ($pdo->inTransaction()) $pdo->rollBack();
         throw $e;
     }
+}
+
+/**
+ * Мэдээллийн сангийн бүтцийг автоматаар шинэчилнэ (migrate.php).
+ * Шинэ хувилбар анх ачаалагдахад эсвэл дутуу хүснэгт/багана илэрвэл дуудагдана —
+ * setup.php-г гараар ажиллуулах шаардлагагүй. Олон хүсэлт зэрэг ирвэл түгжээгээр дараалуулна.
+ */
+function auto_migrate(): bool
+{
+    require_once __DIR__ . '/migrate.php';
+    $pdo = db();
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    try {
+        $pdo->query("SELECT GET_LOCK('vgtaa_migrate', 20)")->fetchColumn();
+    } catch (PDOException) {
+        // GET_LOCK дэмжихгүй бол түгжээгүйгээр (шинэчлэлт өөрөө давхардлаас хамгаалагдсан)
+    }
+    $problems = [];
+    try {
+        $say = function (string $kind, string $msg) use (&$problems): void {
+            if ($kind !== 'ok') $problems[] = $msg;
+        };
+        $ok = vgtaa_migrate($pdo, $say);
+        if ($ok) mg_seed_if_empty($pdo, $say);   // Шинэ сервер: үгийн сан хоосон бол эхлэлийн үгс
+    } finally {
+        try {
+            $pdo->query("SELECT RELEASE_LOCK('vgtaa_migrate')")->fetchColumn();
+        } catch (PDOException) {
+        }
+    }
+    if ($problems) error_log('[vgtaa] auto-migrate: ' . implode(' | ', $problems));
+    if ($ok) kv_set('schema_version', APP_VERSION);
+    return $ok;
 }
 
 function kv_get(string $k): ?string
@@ -1549,6 +1582,12 @@ function finalize_due_tournaments(): void
    ============================================================ */
 function a_config(): never
 {
+    // Шинэ хувилбар анх нээгдэхэд бүтцийг өөрөө шинэчилнэ (хувилбар бүрт ганц удаа)
+    try {
+        if (DB_NAME !== '' && kv_get('schema_version') !== APP_VERSION) auto_migrate();
+    } catch (Throwable $e) {
+        error_log('[vgtaa] auto-migrate on config: ' . $e->getMessage());
+    }
     $players = 0;
     $winners = 0;
     try {
@@ -1653,6 +1692,12 @@ function a_google_login(): never
     }
 
     if ((int)($u['is_banned'] ?? 0) === 1) fail('Таны бүртгэл түр түдгэлзсэн байна. Админтай холбогдоно уу.', 403);
+
+    // ADMIN_EMAILS орчны хувьсагчид байгаа имэйл нэвтрэхэд автоматаар админ болно (setup.php шаардахгүй)
+    if ((int)($u['is_admin'] ?? 0) !== 1 && in_array(mb_strtolower((string)$u['email']), ADMIN_EMAILS, true)) {
+        q("UPDATE users SET is_admin = 1 WHERE id = ?", [$u['id']]);
+        $u['is_admin'] = 1;
+    }
 
     ok([
         'token'  => jwt_issue((int)$u['id']),
@@ -4501,7 +4546,17 @@ try {
     error_log('[vgtaa] DB: ' . $e->getMessage());
     $code = (int)($e->errorInfo[1] ?? 0);
     if (in_array($code, [1054, 1146], true)) {
-        respond(['success' => false, 'message' => 'Мэдээллийн сангийн шинэчлэлт хийгдээгүй байна. Админ setup.php-г ажиллуулна уу.', 'code' => 'schema_outdated'], 503);
+        // Дутуу хүснэгт/багана — өөрөө шинэчлээд клиентэд дахин оролдохыг хэлнэ
+        $migrated = false;
+        try {
+            $migrated = auto_migrate();
+        } catch (Throwable $m) {
+            error_log('[vgtaa] auto-migrate: ' . $m->getMessage());
+        }
+        if ($migrated) {
+            respond(['success' => false, 'message' => 'Сайт шинэчлэгдлээ. Дахин оролдоно уу.', 'code' => 'schema_migrated'], 503);
+        }
+        respond(['success' => false, 'message' => 'Мэдээллийн сангийн шинэчлэлт амжилтгүй боллоо. Админ setup.php-г ажиллуулна уу.', 'code' => 'schema_outdated'], 503);
     }
     respond(['success' => false, 'message' => 'Серверийн алдаа гарлаа. Дараа дахин оролдоно уу.'], 500);
 } catch (Throwable $e) {

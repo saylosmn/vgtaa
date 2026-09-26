@@ -39,6 +39,8 @@ define('GOOGLE_CLIENT_ID', $__env('GOOGLE_CLIENT_ID', '399324970310-96ddmej2nge9
  *               https://таны-домэйн/setup.php?key=ЭНЭ_ТҮЛХҮҮР
  */
 define('JWT_SECRET', $__env('JWT_SECRET'));
+/* Эдгээр имэйлээр нэвтэрсэн хүн автоматаар админ болно (таслалаар): name@gmail.com,other@gmail.com */
+define('ADMIN_EMAILS', array_values(array_filter(array_map(fn(string $e): string => mb_strtolower(trim($e)), explode(',', $__env('ADMIN_EMAILS'))))));
 define('SETUP_KEY',  $__env('SETUP_KEY'));
 
 /* ── Ерөнхий ──────────────────────────────────────────────────────── */

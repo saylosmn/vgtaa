@@ -16,7 +16,7 @@
 'use strict';
 
 (() => {
-  const VERSION = '7.3.0';
+  const VERSION = '7.4.0';
 
   /* ============================================================
      1. ТУСЛАХ ФУНКЦУУД
@@ -204,7 +204,7 @@
   const Api = {
     token: store.get('token'),
 
-    async call(action, { method = 'GET', body = null, query = null, timeout = 20000 } = {}) {
+    async call(action, { method = 'GET', body = null, query = null, timeout = 20000, retried = false } = {}) {
       const url = new URL('api.php', location.href);
       url.searchParams.set('action', action);
       if (query) for (const [k, v] of Object.entries(query)) if (v != null && v !== '') url.searchParams.set(k, v);
@@ -246,6 +246,8 @@
       }
       session.del('reloaded');
 
+      // Сервер өгөгдлийн сангаа өөрөө шинэчилсэн — нэг удаа дахин илгээнэ
+      if (data.code === 'schema_migrated' && !retried) return this.call(action, { method, body, query, timeout, retried: true });
       if (!res.ok || data.success === false) {
         const err = new ApiError(data.message || 'Алдаа гарлаа.', res.status, data.code || null);
         if (res.status === 401 && this.token && action !== 'google_login') Auth.expired(err.message);
