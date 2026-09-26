@@ -33,7 +33,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400..800&display=swap">
-  <link rel="stylesheet" href="index.css?v=7.5.1">
+  <link rel="stylesheet" href="index.css?v=7.6.0">
   <script>(function(){try{var p=JSON.parse(localStorage.getItem('ugtaa:prefs')||'{}'),d=document.documentElement;if(p.theme==='dark'||p.theme==='light')d.setAttribute('data-theme',p.theme);if(p.contrast)d.setAttribute('data-contrast','high');}catch(e){}})();</script>
 </head>
 <body>
@@ -67,7 +67,7 @@
         <div class="ref-note route-note" id="route-note" role="status" hidden></div>
         <div class="gsi-slot" id="gsi-btn" data-gsi></div>
         <p class="gsi-fallback" id="gsi-fallback" hidden>Google нэвтрэлт ачаалагдсангүй. Интернэтээ шалгаад <button type="button" class="link-btn" data-action="reload">дахин ачаалах</button>.</p>
-        <p class="fine">Үргэлжлүүлснээр та тоглоомын дүрмийг зөвшөөрч байна. Бид таны нэр, имэйл, зургийг л ашиглана.</p>
+        <p class="fine">Үргэлжлүүлснээр та <b>18 нас хүрсэн</b> гэдгээ баталж, <a href="terms.html">Үйлчилгээний нөхцөл</a>, <a href="privacy.html">Нууцлалын бодлогыг</a> зөвшөөрч байна. Бид таны нэр, имэйл, зургийг л ашиглана.</p>
       </div>
     </section>
 
@@ -108,8 +108,18 @@
     </section>
 
     <footer class="landing-foot">
-      <span>© Үг Таа</span>
-      <a href="#login">Тоглож эхлэх →</a>
+      <div class="foot-age"><span class="age-badge">18+</span><span>Мөнгөн шагналтай тоглоом зөвхөн насанд хүрэгчдэд. Алдахад гэмгүй мөнгөөрөө л тоглож, хэмжээгээ мэдээрэй.</span></div>
+      <nav class="foot-links" aria-label="Мэдээлэл">
+        <a href="terms.html">Үйлчилгээний нөхцөл</a>
+        <a href="privacy.html">Нууцлалын бодлого</a>
+        <a href="terms.html#responsible">Хариуцлагатай тоглоом</a>
+      </nav>
+      <div class="foot-contact">
+        <span class="muted">Тусламж, асуулт:</span>
+        <a id="foot-email" href="mailto:saylosnn1@gmail.com">saylosnn1@gmail.com</a>
+        <a id="foot-fb" href="#" target="_blank" rel="noopener" hidden>Facebook</a>
+      </div>
+      <div class="foot-bottom"><span>© Үг Таа</span><a href="#login">Тоглож эхлэх →</a></div>
     </footer>
   </div>
 
@@ -176,6 +186,6 @@
   <noscript><div class="noscript">Үг Таа тоглохын тулд хөтчийнхөө JavaScript-ийг идэвхжүүлнэ үү.</div></noscript>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="index.js?v=7.5.1" defer></script>
+  <script src="index.js?v=7.6.0" defer></script>
 </body>
 </html>

@@ -16,7 +16,7 @@
 'use strict';
 
 (() => {
-  const VERSION = '7.5.1';
+  const VERSION = '7.6.0';
 
   /* ============================================================
      1. ТУСЛАХ ФУНКЦУУД
@@ -110,6 +110,9 @@
 
   /* ── Дүрс тэмдэгүүд (Lucide, ISC) ───────────────────────── */
   const ICONS = {
+    mail: '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+    chat: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+    doc: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 13H8"/><path d="M16 17H8"/><path d="M16 13h-2"/>',
     x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
     help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
     chart: '<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
@@ -186,6 +189,7 @@
   const DEFAULT_CONFIG = {
     google_client_id: '399324970310-96ddmej2nge9r0qij35dr5eum2cll6g5.apps.googleusercontent.com',
     app_url: location.origin + location.pathname.replace(/[^/]*$/, ''),
+    support_email: 'saylosnn1@gmail.com', support_facebook: '',
     max_attempts: 5, reward_amount: 500, reward_by_attempt: {}, premium_multiplier: 1, premium_price: 20000,
     premium_days: 30, tournament_fee: 5000, tournament_split: [50, 30, 20], referral_bonus: 2000,
     referral_unlock: 15, min_withdrawal: 20000, max_withdrawal: 2000000, practice_daily_free: 3,
@@ -652,20 +656,31 @@
 
     show() {
       $('#landing').hidden = false;
-      const c = App.config;
-      $('#step-reward').textContent = '+' + money(c.reward_amount);
-      $('#hero-sub').textContent = `Нууц монгол үгийг ${c.max_attempts} оролдлогоор таа. Зөв таавал ${money(c.reward_amount)} шагнал шууд хэтэвчинд орно.`;
-      this.renderLive();
+      this.fill();
       const ref = store.get('ref');
       if (ref) {
         $('#ref-note').innerHTML = html`${icon('gift')} Урилгын код <b>${ref}</b> хадгалагдлаа`;
         $('#ref-note').hidden = false;
       }
-      this.renderFaq();
       this.routeNote();
       this.checkInApp();
       this.demo();
       Auth.initGsi();
+    },
+
+    /* Тохиргооноос хамаарах текст — сервер удаан хариулбал эхлээд DEFAULT_CONFIG-оор харуулж, дараа нь шинэчилнэ */
+    fill() {
+      const c = App.config;
+      $('#step-reward').textContent = '+' + money(c.reward_amount);
+      $('#hero-sub').textContent = `Нууц монгол үгийг ${c.max_attempts} оролдлогоор таа. Зөв таавал ${money(c.reward_amount)} шагнал шууд хэтэвчинд орно.`;
+      this.renderLive();
+      this.renderFaq();
+      const mail = $('#foot-email');
+      if (c.support_email) { mail.href = 'mailto:' + c.support_email; mail.textContent = c.support_email; }
+      mail.hidden = !c.support_email;
+      const fb = $('#foot-fb');
+      if (c.support_facebook) fb.href = c.support_facebook;
+      fb.hidden = !c.support_facebook;
     },
 
     renderFaq() {
@@ -691,6 +706,8 @@
       const note = $('#route-note');
       const m = location.hash.match(/^#\/(.+)/);
       if (m) session.set('next', '#/' + m[1].split('/').filter(Boolean).join('/'));
+      // Нүүр хуудас руу буцвал (hash хоосон) мартана. #login, #faq мэт дотоод холбоос дарахад хадгална.
+      else if (!location.hash || location.hash === '#') session.del('next');
       const next = session.get('next');
       if (!next) { note.hidden = true; return false; }
       const [page, sub, code] = next.slice(2).split('/');
@@ -3036,7 +3053,8 @@
             <p class="muted small center">Хамгийн бага ${money(d.min)} · хамгийн их ${money(d.max)}</p>
           </form>
         </div>
-        <div class="hint-row">${icon('crown')}<span>Premium ${money(c.premium_price)} · Тэмцээний хураамж ${money(c.tournament_fee)}</span></div>`;
+        <div class="hint-row">${icon('crown')}<span>Premium ${money(c.premium_price)} · Тэмцээний хураамж ${money(c.tournament_fee)}</span></div>
+        <p class="muted small center">18+ · Алдахад гэмгүй мөнгөөрөө л тоглоорой. <a href="terms.html#responsible">Хариуцлагатай тоглоом</a></p>`;
     },
 
     transfer(o, b) {
@@ -3170,6 +3188,10 @@
           </nav>
           <div class="menu">
             <button class="menu-item" type="button" data-action="settings"><span class="li-ic">${icon('sliders')}</span><span class="li-main"><span class="li-title">Тохиргоо</span></span>${icon('right', 'chev')}</button>
+            ${c.support_email ? item('mailto:' + c.support_email, 'mail', 'Тусламж, холбоо барих', c.support_email) : ''}
+            ${c.support_facebook ? item(c.support_facebook, 'chat', 'Facebook', 'Мессеж бичих') : ''}
+            ${item('terms.html', 'doc', 'Үйлчилгээний нөхцөл', '18+ · Хариуцлагатай тоглоом')}
+            ${item('privacy.html', 'shield', 'Нууцлалын бодлого')}
             <button class="menu-item danger" type="button" data-action="logout"><span class="li-ic">${icon('logout')}</span><span class="li-main"><span class="li-title">Гарах</span></span></button>
           </div>`;
       } catch (e) {
@@ -4292,8 +4314,8 @@
 
     // Нэвтрээгүй үед апп доторх холбоос руу очвол нэвтрэх хэсэг рүү чиглүүлнэ
     addEventListener('hashchange', () => {
-      if (App.user || $('#landing').hidden || !/^#\//.test(location.hash)) return;
-      if (Landing.routeNote()) $('#login').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (App.user || $('#landing').hidden) return;
+      if (Landing.routeNote() && /^#\//.test(location.hash)) $('#login').scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 
     // Сүлжээ
@@ -4352,6 +4374,7 @@
       App.publicToday = r.today;
       App.sponsor = r.sponsor || null;
       Clock.sync(r.time);
+      if (!App.user && !$('#landing').hidden) Landing.fill();
     }).catch(() => {});
 
     if (Api.token) {
@@ -4373,7 +4396,7 @@
         }
       }
     } else {
-      await cfg;
+      // Серверийг хүлээхгүй: удаан интернэт, cold start үед ч нүүр хуудас шууд харагдана
       Landing.show();
     }
 

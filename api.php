@@ -20,7 +20,7 @@
  */
 declare(strict_types=1);
 
-const APP_VERSION = '7.5.1';
+const APP_VERSION = '7.6.0';
 
 define('VGTAA', true);
 require __DIR__ . '/config.php';
@@ -730,6 +730,8 @@ function public_config(): array
         'google_client_id'   => GOOGLE_CLIENT_ID,
         'app_url'            => APP_URL,
         'version'            => APP_VERSION,
+        'support_email'      => SUPPORT_EMAIL,
+        'support_facebook'   => preg_match('~^https://~i', SUPPORT_FACEBOOK) ? SUPPORT_FACEBOOK : '',
         'max_attempts'       => MAX_ATTEMPTS,
         'reward_amount'      => REWARD_AMOUNT,
         'reward_by_attempt'  => (object)REWARD_BY_ATTEMPT,

@@ -136,13 +136,13 @@ img, svg { display: block; max-width: 100%; }
 
 .splash {
   position: fixed; inset: 0; z-index: 200; display: grid; place-items: center;
-  background: var(--glow), var(--bg); transition: opacity .35s ease, visibility .35s;
+  background: var(--glow), var(--bg); transition: opacity .25s ease, visibility .25s;
 }
-.splash .lt { animation: splash-in .6s cubic-bezier(.2, .8, .3, 1.3) both; }
-.splash .lt:nth-child(2) { animation-delay: .07s; }
-.splash .lt:nth-child(4) { animation-delay: .14s; }
-.splash .lt:nth-child(5) { animation-delay: .21s; }
-.splash .lt:nth-child(6) { animation-delay: .28s; }
+.splash .lt { animation: splash-in .4s cubic-bezier(.2, .8, .3, 1.3) both; }
+.splash .lt:nth-child(2) { animation-delay: .04s; }
+.splash .lt:nth-child(4) { animation-delay: .08s; }
+.splash .lt:nth-child(5) { animation-delay: .12s; }
+.splash .lt:nth-child(6) { animation-delay: .16s; }
 .splash.hide { opacity: 0; visibility: hidden; }
 @keyframes splash-in { from { transform: scale(.4) rotateX(80deg); opacity: 0; } to { transform: none; opacity: 1; } }
 
@@ -554,8 +554,15 @@ main { outline: none; }
 .faq-item .chev { color: var(--text-3); transition: transform .2s; }
 .faq-item[open] .chev { transform: rotate(90deg); }
 .faq-item p { padding: 0 4px 16px; color: var(--text-2); font-size: 14.5px; }
-.landing-foot { display: flex; justify-content: space-between; padding: 28px 4px 8px; color: var(--text-3); font-size: 13px; }
+.landing-foot { display: grid; gap: 14px; padding: 28px 4px 8px; margin-top: 12px; border-top: 1px solid var(--line); color: var(--text-3); font-size: 13px; line-height: 1.5; }
 .landing-foot a { color: var(--text-2); }
+.landing-foot a:hover { color: var(--text); }
+.foot-age { display: flex; gap: 10px; align-items: flex-start; }
+.age-badge { flex: none; display: inline-grid; place-items: center; min-width: 34px; height: 24px; padding: 0 6px; border-radius: 7px; border: 1.5px solid var(--warn); color: var(--warn); font-weight: 800; font-size: 12px; }
+.foot-links, .foot-contact { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.foot-contact a { word-break: break-all; }
+.foot-bottom { display: flex; justify-content: space-between; gap: 12px; }
+.fine a { color: var(--text-2); text-decoration: underline; }
 @media (max-width: 760px) {
   .steps { grid-template-columns: 1fr; }
   .features { grid-template-columns: 1fr 1fr; }
@@ -1202,3 +1209,17 @@ main { outline: none; }
 .setup-hero > .i { width: 30px; height: 30px; color: var(--gold-text); flex: none; }
 .setup-hero b { display: block; font-size: 16px; }
 .setup-hero small { font-size: 13px; color: var(--text-2); line-height: 1.4; }
+
+/* ── 28. v7.6: Үйлчилгээний нөхцөл, Нууцлалын бодлого ───────────── */
+.legal { max-width: 720px; margin: 0 auto; padding: max(20px, env(safe-area-inset-top)) 16px 48px; line-height: 1.65; color: var(--text-2); }
+.legal-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
+.legal h1 { color: var(--text); font-size: 26px; line-height: 1.25; margin: 0 0 4px; }
+.legal h2 { color: var(--text); font-size: 18px; margin: 28px 0 8px; scroll-margin-top: 16px; }
+.legal p, .legal li { font-size: 15px; }
+.legal ul, .legal ol { padding-left: 22px; }
+.legal li { margin: 4px 0; }
+.legal a { color: var(--blue); }
+.legal b { color: var(--text); }
+.legal .updated { color: var(--text-3); font-size: 13px; margin: 0; }
+.legal .callout { margin: 16px 0; padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--warn) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); }
+.legal-foot { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 13px; }

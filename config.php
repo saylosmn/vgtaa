@@ -58,6 +58,10 @@ define('ALLOWED_ORIGINS', array_values(array_unique(array_filter(array_merge(
     [APP_URL, 'https://vgtaa.vercel.app', 'https://vgtaa.fwh.is', 'http://vgtaa.fwh.is'],
     array_map('trim', explode(',', $__env('EXTRA_ORIGINS')))   // Өөр домэйнээс API дуудах бол
 )))));
+/* Хэрэглэгч асуудалтай тулгарвал хандах хаяг — footer, «Би» цэс, нөхцөлийн хуудсанд харагдана.
+ * SUPPORT_FACEBOOK: Facebook хуудас/Messenger холбоос (m.me/...), хоосон бол харуулахгүй. */
+define('SUPPORT_EMAIL',    $__env('SUPPORT_EMAIL', 'saylosnn1@gmail.com'));
+define('SUPPORT_FACEBOOK', $__env('SUPPORT_FACEBOOK'));
 define('TOKEN_TTL_DAYS', 30);
 /* Бодит цагийн шинэчлэлт: нээлттэй хуудас хэдэн секунд тутам өөрчлөлт шалгах вэ.
  * InfinityFree өдрийн хандалтын хязгаартай тул удаан, Render/Vercel дээр хурдан.
