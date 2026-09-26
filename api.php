@@ -20,7 +20,7 @@
  */
 declare(strict_types=1);
 
-const APP_VERSION = '7.4.1';
+const APP_VERSION = '7.4.2';
 
 define('VGTAA', true);
 require __DIR__ . '/config.php';
@@ -1640,7 +1640,16 @@ function a_ping(): never
         $dbOk = (int)val("SELECT 1") === 1;
     } catch (Throwable) {
     }
-    ok(['version' => APP_VERSION, 'db' => $dbOk, 'time' => time_payload()]);
+    // Бүтцийн шинэчлэлтийн төлөв — deploy хийсний дараа оношлоход (DB хэрэглэгчийн нэр нууцлагдсан)
+    $schema = null;
+    if ($dbOk) {
+        try {
+            $ver = kv_get('schema_version');
+            $schema = ['version' => $ver, 'ok' => $ver === APP_VERSION, 'problems' => migrate_problems(5)];
+        } catch (Throwable) {
+        }
+    }
+    ok(['version' => APP_VERSION, 'db' => $dbOk, 'schema' => $schema, 'time' => time_payload()]);
 }
 
 /* ============================================================
