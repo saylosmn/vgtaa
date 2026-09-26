@@ -20,7 +20,7 @@
  */
 declare(strict_types=1);
 
-const APP_VERSION = '7.4.3';
+const APP_VERSION = '7.5.0';
 
 define('VGTAA', true);
 require __DIR__ . '/config.php';
@@ -835,9 +835,24 @@ function settings(bool $fresh = false): array
             // app_kv хүснэгтгүй бол анхны утгууд
         }
         $d = is_string($raw) ? json_decode($raw, true) : null;
-        $s = array_merge(SETTINGS_DEFAULTS, is_array($d) ? array_intersect_key($d, SETTINGS_DEFAULTS) : []);
+        $s = array_merge(SETTINGS_DEFAULTS, settings_env_defaults(), is_array($d) ? array_intersect_key($d, SETTINGS_DEFAULTS) : []);
     }
     return $s;
+}
+
+/** Орчны хувьсагчаар өгсөн цэнэглэх данс (DEPOSIT_BANK, DEPOSIT_ACCOUNT_NAME, DEPOSIT_ACCOUNT_NUMBER, DEPOSIT_IBAN) */
+function settings_env_defaults(): array
+{
+    $e = array_filter(DEPOSIT_ENV, fn($v): bool => is_string($v) && $v !== '');
+    if (isset($e['deposit_bank']) && !isset(BANKS[$e['deposit_bank']])) {
+        // Банкны нэрээр бичсэн бол (жишээ нь «Хаан банк») түлхүүр рүү хөрвүүлнэ
+        $key = array_search($e['deposit_bank'], BANKS, true);
+        if ($key === false) unset($e['deposit_bank']);
+        else $e['deposit_bank'] = $key;
+    }
+    // Данс бүрэн бол анхнаасаа идэвхтэй
+    if (isset($e['deposit_bank'], $e['deposit_account_name'], $e['deposit_account_number'])) $e['deposit_enabled'] = true;
+    return $e;
 }
 
 function settings_save(array $patch): array

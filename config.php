@@ -63,6 +63,15 @@ define('TOKEN_TTL_DAYS', 30);
  * InfinityFree өдрийн хандалтын хязгаартай тул удаан, Render/Vercel дээр хурдан.
  * Хэрэглэгч 5 минут хөдөлгөөнгүй бол 60 секунд, таб нуугдвал бүр зогсоно. */
 define('LIVE_INTERVAL', max(2, (int)$__env('LIVE_INTERVAL', PLATFORM === 'shared' ? '12' : '4')));
+/* Хэтэвч цэнэглэх данс — орчны хувьсагчаар өгвөл цэнэглэлт шууд идэвхжинэ
+ * (Админ → Тохиргоо хэсэгт хадгалсан утга давуу эрхтэй).
+ * DEPOSIT_BANK: Khan | Golomt | TDB | State | Xac | Bogd | Capitron | MBank | Arig | TransDev | NIBank | Chinggis */
+define('DEPOSIT_ENV', [
+    'deposit_bank'           => $__env('DEPOSIT_BANK'),
+    'deposit_account_name'   => $__env('DEPOSIT_ACCOUNT_NAME'),
+    'deposit_account_number' => preg_replace('/[\s\-]/', '', $__env('DEPOSIT_ACCOUNT_NUMBER')) ?? '',
+    'deposit_iban'           => strtoupper(preg_replace('/\s+/', '', $__env('DEPOSIT_IBAN')) ?? ''),
+]);
 unset($__secret, $__env);
 
 /** MySQL холболтын DSN (api.php, setup.php хоёулаа ашиглана) */

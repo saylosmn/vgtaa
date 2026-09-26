@@ -16,7 +16,7 @@
 'use strict';
 
 (() => {
-  const VERSION = '7.4.0';
+  const VERSION = '7.5.0';
 
   /* ============================================================
      1. ТУСЛАХ ФУНКЦУУД
@@ -2836,7 +2836,7 @@
             <div class="wh-l">Үлдэгдэл</div>
             <div class="wh-v">${money(u.balance)}</div>
             <div class="wh-sub"><span>Нийт хожсон <b>${money(u.won_balance)}</b></span><span>Урамшуулал <b>${money(u.referral_balance)}</b></span></div>
-            ${r.deposits && r.deposits.enabled ? html`<a class="btn btn-gold btn-block wh-btn" href="#/topup">${icon('plus')} Хэтэвч цэнэглэх</a>` : ''}
+            <a class="btn btn-gold btn-block wh-btn" href="#/topup">${icon('plus')} Хэтэвч цэнэглэх</a>
           </div>
           ${r.deposits ? r.deposits.pending.map((d) => html`<a class="note note-wait note-link" href="#/topup">${icon('clock')}<span>Цэнэглэлт <b>${money(d.amount)}</b> шалгагдаж байна · <span class="mono">${d.reference}</span></span>${icon('right')}</a>`) : ''}
 
@@ -2939,10 +2939,53 @@
       const d = this.data;
       const el = $('#page-topup');
       if (!d.enabled) {
-        el.innerHTML = html`${this.head()}${empty('lock', 'Цэнэглэлт түр хаалттай', 'Удахгүй нээгдэнэ. Асуух зүйл байвал админтай холбогдоно уу.')}${this.history()}`;
+        el.innerHTML = html`${this.head()}${App.user && App.user.is_admin
+          ? this.setup()
+          : empty('lock', 'Цэнэглэлт түр хаалттай', 'Админ хүлээн авах дансаа тохируулмагц энд нээгдэнэ. Асуух зүйл байвал админтай холбогдоно уу.')}${this.history()}`;
         return;
       }
       el.innerHTML = html`${this.head()}${d.open && !this.changing ? this.transfer(d.open, d.bank) : this.picker()}${this.history()}`;
+    },
+
+    /** Админд: хүлээн авах дансаа энд шууд тохируулж цэнэглэлтийг нээнэ */
+    setup() {
+      const banks = Object.entries(App.config.banks || {});
+      return html`<div class="card form-card">
+        <div class="setup-hero">${icon('banknote')}<div><b>Цэнэглэлтийг идэвхжүүлэх</b><small>Хэрэглэгчид энэ данс руу мөнгө шилжүүлж, та баталгаажуулмагц хэтэвчинд нь орно. Зөвхөн админд харагдана.</small></div></div>
+        <form class="form" data-form="deposit-setup" novalidate>
+          <label class="field"><span class="field-label">Банк</span>
+            <select class="input" name="deposit_bank" required><option value="">Сонгох</option>${banks.map(([k, v]) => html`<option value="${k}">${v}</option>`)}</select></label>
+          <label class="field"><span class="field-label">Данс эзэмшигчийн нэр</span>
+            <input class="input" name="deposit_account_name" maxlength="100" placeholder="Жишээ: Бат-Эрдэнэ Б." required></label>
+          <label class="field"><span class="field-label">Дансны дугаар</span>
+            <input class="input mono" name="deposit_account_number" inputmode="numeric" placeholder="5000123456" required></label>
+          <label class="field"><span class="field-label">IBAN <small class="muted">(заавал биш)</small></span>
+            <input class="input mono" name="deposit_iban" placeholder="MN12 3456 7890 1234 5678"></label>
+          <button class="btn btn-gold btn-block btn-lg" type="submit">${icon('check')} Хадгалаад цэнэглэлтийг нээх</button>
+          <p class="muted small center">Дараа нь Админ → Тохиргоо хэсгээс өөрчилж болно. Цэнэглэлтийн хүсэлтийг Telegram-аар авах бол тэнд Telegram-аа холбоно уу.</p>
+        </form>
+      </div>`;
+    },
+
+    async saveSetup(f) {
+      const v = (n) => f.elements[n].value.trim();
+      for (const n of ['deposit_bank', 'deposit_account_name', 'deposit_account_number']) {
+        if (!v(n)) { f.elements[n].classList.add('invalid'); f.elements[n].focus(); return; }
+      }
+      const btn = $('button[type=submit]', f);
+      btn.disabled = true;
+      try {
+        const r = await Api.post('admin_settings_save', {
+          deposit_enabled: true, deposit_bank: v('deposit_bank'), deposit_account_name: v('deposit_account_name'),
+          deposit_account_number: v('deposit_account_number'), deposit_iban: v('deposit_iban'),
+        });
+        Toast.show(r.ready ? 'Цэнэглэлт нээгдлээ! Хэрэглэгчид одоо хэтэвчээ цэнэглэж болно.' : r.message, r.ready ? 'success' : 'info', 5000);
+        this.show();
+      } catch (e) {
+        Toast.error(e);
+      } finally {
+        if (btn.isConnected) btn.disabled = false;
+      }
     },
 
     picker() {
@@ -3085,6 +3128,7 @@
           </div>
           <nav class="menu">
             ${item('#/wallet', 'wallet', 'Хэтэвч', money(u.balance))}
+            ${item('#/topup', 'plus', 'Хэтэвч цэнэглэх', 'Банкны шилжүүлгээр')}
             ${item('#/referral', 'users', 'Найз урих', `${r.referrals.verified}/${c.referral_unlock} баталгаажсан`)}
             ${item('#/premium', 'crown', 'Premium', u.is_premium ? 'Идэвхтэй' : `${money(c.premium_price)}/сар`)}
             ${item('#/games', 'gamepad', 'Тоглоомууд', '7 тоглоом · Blitz арена')}
@@ -4068,6 +4112,7 @@
       e.preventDefault();
       const A = Pages.admin;
       if (kind === 'topup-create') { Pages.topup.create(f); return; }
+      if (kind === 'deposit-setup') { Pages.topup.saveSetup(f); return; }
       if (kind === 'settings-deposit' || kind === 'settings-telegram' || kind === 'settings-sponsor') {
         const btn = $('button[type=submit]', f);
         btn.disabled = true;

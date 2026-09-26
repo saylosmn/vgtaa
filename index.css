@@ -1187,3 +1187,17 @@ main { outline: none; }
 .rev-row b.neg { color: var(--bad); }
 .rev-total { border-bottom: 0; font-size: 16px; font-weight: 800; }
 .rev-card .muted.small { margin-top: 6px; }
+
+/* ── 27. v7.5: Хэтэвч цэнэглэх — «+» товч, админы түргэн тохиргоо ─ */
+.topup-plus {
+  display: grid; place-items: center; width: 30px; height: 30px; margin-left: 4px; border-radius: 50%; flex: none;
+  background: var(--gold); color: #2b1d00; box-shadow: 0 4px 12px -6px var(--gold); transition: transform .12s, filter .15s;
+}
+.topup-plus:hover { filter: brightness(1.08); }
+.topup-plus:active { transform: scale(.92); }
+.topup-plus .i { width: 18px; height: 18px; stroke-width: 2.6; }
+@media (max-width: 360px) { .topup-plus { width: 26px; height: 26px; margin-left: 3px; } }
+.setup-hero { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
+.setup-hero > .i { width: 30px; height: 30px; color: var(--gold-text); flex: none; }
+.setup-hero b { display: block; font-size: 16px; }
+.setup-hero small { font-size: 13px; color: var(--text-2); line-height: 1.4; }
