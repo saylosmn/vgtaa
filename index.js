@@ -16,7 +16,7 @@
 'use strict';
 
 (() => {
-  const VERSION = '7.7.0';
+  const VERSION = '7.7.1';
 
   /* ============================================================
      1. ТУСЛАХ ФУНКЦУУД
@@ -620,6 +620,13 @@
       if (this.active && g.mode === 'daily' && g.date) this.send('daily', { date: g.date, done: !!g.done });
     },
   };
+
+  /* Android апп-ын APK (android/ дотор `./gradlew publishApk` → download/ugtaa.apk).
+     Апп дотроос болон iPhone/iPad дээр татах холбоос харуулахгүй. */
+  const APK = { href: 'download/ugtaa.apk', meta: 'Үнэгүй · APK 1.0 MB · Android 8.0+' };
+  const isIOS = () => /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const showApk = () => !Native.active && !isIOS();
+  const APK_HINT = 'Татаж дуусмагц файлаа нээгээд «Суулгах» дарна уу. Утас асуувал «Энэ эх сурвалжаас суулгахыг зөвшөөрөх»-ийг асаана.';
 
   const Auth = {
     gsiTries: 0,
@@ -3262,6 +3269,7 @@
             ${c.support_facebook ? item(c.support_facebook, 'chat', 'Facebook', 'Мессеж бичих') : ''}
             ${item('terms.html', 'doc', 'Үйлчилгээний нөхцөл', '18+ · Хариуцлагатай тоглоом')}
             ${item('privacy.html', 'shield', 'Нууцлалын бодлого')}
+            ${showApk() ? html`<a class="menu-item" href="${APK.href}" download="UgTaa.apk" data-apk><span class="li-ic">${icon('download')}</span><span class="li-main"><span class="li-title">Android апп татах</span><span class="li-sub">${APK.meta}</span></span>${icon('right', 'chev')}</a>` : ''}
             <button class="menu-item danger" type="button" data-action="logout"><span class="li-ic">${icon('logout')}</span><span class="li-main"><span class="li-title">Гарах</span></span></button>
           </div>`;
       } catch (e) {
@@ -4185,6 +4193,7 @@
       if (act && actions[act.dataset.action]) { e.preventDefault(); actions[act.dataset.action](act); return; }
       const cp = t.closest('[data-copy]');
       if (cp) { copyText(cp.dataset.copy); return; }
+      if (t.closest('[data-apk]')) { Toast.show(APK_HINT, 'info', 7000); return; } // татахыг хаахгүй
       if (t.closest('[data-sponsor]')) { Api.post('sponsor_click').catch(() => {}); return; }
       const retry = t.closest('[data-retry]');
       if (retry) { Router.go(); return; }
@@ -4435,6 +4444,7 @@
     captureReferral();
     bindEvents();
     Native.init();
+    $$('[data-apk]').forEach((el) => { el.hidden = !showApk(); });
     try { localStorage.removeItem('auth_token'); sessionStorage.removeItem('auth_token'); } catch { /* v5 */ }
 
     if ('serviceWorker' in navigator && location.protocol === 'https:') {

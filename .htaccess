@@ -40,6 +40,7 @@ DirectoryIndex index.html
   AddType application/manifest+json .webmanifest
   AddType image/svg+xml .svg
   AddType text/javascript .js
+  AddType application/vnd.android.package-archive .apk
 </IfModule>
 
 <IfModule mod_headers.c>
@@ -60,6 +61,12 @@ DirectoryIndex index.html
   </FilesMatch>
   <FilesMatch "^sw\.js$">
     Header set Cache-Control "no-cache"
+  </FilesMatch>
+
+  # Android апп — татаж авахуулна, шинэ хувилбар хурдан хүрнэ
+  <FilesMatch "\.apk$">
+    Header set Content-Disposition "attachment; filename=\"UgTaa.apk\""
+    Header set Cache-Control "public, max-age=300"
   </FilesMatch>
 </IfModule>
 

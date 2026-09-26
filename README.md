@@ -1,4 +1,4 @@
-# Үг Таа v7.7
+# Үг Таа v7.7.1
 
 Монгол үг таах тоглоом. PHP 8.1+ болон MySQL/MariaDB дээр ажиллана. Нэг кодоор **InfinityFree**, **Render**, **Vercel** гурвын аль нэгэнд байршуулна.
 
@@ -11,6 +11,12 @@
 | Үнэгүй хувилбар | Хурд удаан | 15 минут хандалтгүй бол унтана | Hobby — **арилжааны зориулалтаар хориотой** |
 
 > ⚠️ Vercel-ийн үнэгүй Hobby төлөвлөгөө зөвхөн хувийн, арилжааны бус төсөлд зориулагдсан. Мөнгөн шагнал, төлбөртэй апп тул Vercel-д **Pro** ($20/сар) хэрэгтэй. Үнэгүй байршуулах бол Render эсвэл InfinityFree-г сонго.
+
+## v7.7.1 — Android апп татах товч
+
+- **«Android апп татах»** товч нүүр хуудсанд (нэвтрэх картын доор), footer-т болон «Би» цэсэнд нэмэгдсэн. Файл нь `download/ugtaa.apk` бөгөөд upload түлхүүрээр гарын үсэг зурагдсан. Апп дотор болон iPhone/iPad дээр товч харагдахгүй. Товч дармагц суулгах заавар toast-оор гарна.
+- **Шинэ APK байршуулах:** `android` хавтсанд `./gradlew publishApk` командыг ажиллуулна. Энэ нь `download/ugtaa.apk`-г шинэчилнэ. Дараа нь commit хийгээд deploy хийнэ. Хувилбар бүрт `android/app/build.gradle.kts`-ийн `versionCode`-г нэмнэ.
+- Service worker APK-г кэшлэхгүй. Vercel болон Apache APK-г `application/vnd.android.package-archive` төрлөөр, татаж авах хэлбэрээр өгнө.
 
 ## v7.7 — Android апп, 3D «Таа» дүр
 
@@ -190,7 +196,7 @@ Functions нь DB-тэй ойр байхын тулд **Singapore (sin1)** бү�
 1. `htdocs` руу хуулах файлууд:
    ```
    .htaccess  index.html  index.css  index.js  sw.js  manifest.webmanifest
-   api.php  migrate.php  config.php  config.secret.php  setup.php  schema.sql  icons/
+   api.php  migrate.php  config.php  config.secret.php  setup.php  schema.sql  icons/  download/
    ```
    `api/`, `deploy/`, `Dockerfile`, `render.yaml`, `vercel.json` нь Render/Vercel-д зориулсан тул хуулах шаардлагагүй.
 2. Сайтаа нээхэд өгөгдлийн сан өөрөө шинэчлэгдэнэ. Хүсвэл `https://vgtaa.fwh.is/setup.php?key=<SETUP_KEY>` хаягаар төлвийг нь шалгаж болно.

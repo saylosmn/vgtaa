@@ -61,6 +61,18 @@ adb shell pm verify-app-links --re-verify mn.ugtaa.app
 adb shell pm get-app-links mn.ugtaa.app
 ```
 
+## Сайтаас татуулах (APK)
+
+Сайтын «Android апп татах» товч нь `download/ugtaa.apk` файлыг өгдөг. Шинэ хувилбар гаргах дараалал:
+1. `app/build.gradle.kts` доторх `versionCode`-г нэгээр нэмнэ, `versionName`-г шинэчилнэ.
+2. Дараах командыг ажиллуулна. Энэ нь гарын үсэгтэй release APK угсраад `../download/ugtaa.apk` руу хуулна:
+   ```bash
+   ./gradlew publishApk
+   ```
+3. Хэмжээ өөрчлөгдсөн бол `index.html` болон `index.js` (`APK.meta`)-ийн «APK 1.0 MB» текстийг шинэчилнэ. Дараа нь commit хийгээд deploy хийнэ.
+
+> Сайтаас суулгасан APK upload түлхүүрээр, Google Play-ийнх Play-ийн түлхүүрээр гарын үсэг зурагдсан байдаг. Тиймээс сайтаас суулгасан хэрэглэгч Play-ийн хувилбарт шилжих бол эхлээд апп-аа устгах шаардлагатай.
+
 ## Google Play-д гаргах
 
 1. Upload түлхүүр аль хэдийн үүссэн: `android/ugtaa-upload.jks` болон нууц үг нь `android/keystore.properties`-д байна. Хоёулаа git-д орохгүй. **Энэ хоёр файлыг аюулгүй газар нөөцөл.** Алдвал Play Console-оос upload түлхүүрээ шинэчлүүлэх хүсэлт гаргах шаардлагатай болно. Шинээр үүсгэх бол `keystore.properties.example`-г үзнэ үү.

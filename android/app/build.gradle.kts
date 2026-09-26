@@ -73,6 +73,17 @@ kotlin {
     }
 }
 
+/* Сайтын «Android апп татах» товчны файлыг шинэчилнэ: ./gradlew publishApk → ../download/ugtaa.apk
+   Дараа нь сайтаа commit + deploy хийнэ. Хувилбар бүрт defaultConfig-ийн versionCode-г нэмэхээ бүү март. */
+tasks.register<Copy>("publishApk") {
+    group = "distribution"
+    description = "Гарын үсэгтэй release APK-г сайтын download/ugtaa.apk руу хуулна"
+    dependsOn("assembleRelease")
+    from(layout.buildDirectory.file("outputs/apk/release/app-release.apk"))
+    into(rootProject.file("../download"))
+    rename { "ugtaa.apk" }
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.ktx)

@@ -20,7 +20,7 @@
  */
 declare(strict_types=1);
 
-const APP_VERSION = '7.7.0';
+const APP_VERSION = '7.7.1';
 
 define('VGTAA', true);
 require __DIR__ . '/config.php';

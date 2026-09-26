@@ -7,3 +7,4 @@
 *.jar binary
 *.bat text eol=crlf
 gradlew text eol=lf
+*.apk binary

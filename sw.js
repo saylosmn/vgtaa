@@ -1,8 +1,8 @@
 /* Үг Таа — service worker
  * Сүлжээ эхэлж (network-first): шинэ хувилбар шууд хүрнэ, интернэтгүй үед
  * сүүлд ачаалсан хуудсаа харуулна. API хүсэлтийг хэзээ ч кэшлэхгүй. */
-const CACHE = 'ugtaa-v7.7.0';
-const SHELL = ['./', 'index.html', 'index.css?v=7.7.0', 'index.js?v=7.7.0', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png'];
+const CACHE = 'ugtaa-v7.7.1';
+const SHELL = ['./', 'index.html', 'index.css?v=7.7.1', 'index.js?v=7.7.1', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {}).then(() => self.skipWaiting()));
@@ -31,7 +31,8 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  if (url.origin !== location.origin || url.pathname.endsWith('.php')) return;
+  // APK (1 MB)-г кэшлэхгүй — шинэ хувилбар гарахад хуучныг өгөхгүй
+  if (url.origin !== location.origin || url.pathname.endsWith('.php') || url.pathname.includes('/download/')) return;
 
   e.respondWith(
     fetch(req)
