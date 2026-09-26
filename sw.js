@@ -1,8 +1,8 @@
 /* Үг Таа — service worker
  * Сүлжээ эхэлж (network-first): шинэ хувилбар шууд хүрнэ, интернэтгүй үед
  * сүүлд ачаалсан хуудсаа харуулна. API хүсэлтийг хэзээ ч кэшлэхгүй. */
-const CACHE = 'ugtaa-v6.3.0';
-const SHELL = ['./', 'index.html', 'index.css?v=6.3.0', 'index.js?v=6.3.0', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png'];
+const CACHE = 'ugtaa-v7.1.0';
+const SHELL = ['./', 'index.html', 'index.css?v=7.1.0', 'index.js?v=7.1.0', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {}).then(() => self.skipWaiting()));

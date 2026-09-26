@@ -1,5 +1,5 @@
 -- ============================================================
--- Үг Таа — мэдээллийн сангийн бүтэц (v6.2)
+-- Үг Таа — мэдээллийн сангийн бүтэц (v7.0)
 --
 -- Шинээр суулгах бол: setup.php-г ажиллуул (энэ файлыг автоматаар
 -- уншиж, дутуу хүснэгт/баганыг нэмнэ). Эсвэл phpMyAdmin → Import.
@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS game_sessions (
   is_completed   TINYINT(1)   NOT NULL DEFAULT 0,
   reward_amount  INT          NOT NULL DEFAULT 0,
   reward_paid    TINYINT(1)   NOT NULL DEFAULT 0,
+  hints          VARCHAR(64)  NULL,
   created_at     DATETIME     NULL DEFAULT CURRENT_TIMESTAMP,
   completed_at   DATETIME     NULL,
   PRIMARY KEY (id),
@@ -204,9 +205,51 @@ CREATE TABLE IF NOT EXISTS practice_sessions (
   attempts_count TINYINT UNSIGNED NOT NULL DEFAULT 0,
   is_won         TINYINT(1)   NOT NULL DEFAULT 0,
   is_completed   TINYINT(1)   NOT NULL DEFAULT 0,
+  hints          VARCHAR(64)  NULL,
   created_at     DATETIME     NULL DEFAULT CURRENT_TIMESTAMP,
   completed_at   DATETIME     NULL,
   PRIMARY KEY (id),
   KEY idx_practice_user (user_id, created_at),
   KEY idx_practice_open (user_id, is_completed)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- v7: Мини тоглоомууд (Дүүжлүүр, Үг холих, Тайлбар таах)
+CREATE TABLE IF NOT EXISTS mini_sessions (
+  id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id      INT UNSIGNED NOT NULL,
+  game         VARCHAR(16)  NOT NULL,
+  word_id      INT UNSIGNED NOT NULL DEFAULT 0,
+  state        TEXT         NULL,
+  score        INT          NOT NULL DEFAULT 0,
+  fee_paid     INT          NOT NULL DEFAULT 0,
+  is_won       TINYINT(1)   NOT NULL DEFAULT 0,
+  is_completed TINYINT(1)   NOT NULL DEFAULT 0,
+  created_at   DATETIME     NULL DEFAULT CURRENT_TIMESTAMP,
+  completed_at DATETIME     NULL,
+  PRIMARY KEY (id),
+  KEY idx_mini_user (user_id, created_at),
+  KEY idx_mini_open (user_id, game, is_completed),
+  KEY idx_mini_done (is_completed, completed_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- v7: Blitz арена — 60 секундийн холимог үг. ranked = хураамжтай, шагналын сантай
+CREATE TABLE IF NOT EXISTS blitz_runs (
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id     INT UNSIGNED NOT NULL,
+  run_date    DATE         NOT NULL,
+  ranked      TINYINT(1)   NOT NULL DEFAULT 0,
+  fee_paid    INT          NOT NULL DEFAULT 0,
+  words       TEXT         NULL,
+  idx         INT          NOT NULL DEFAULT 0,
+  score       INT          NOT NULL DEFAULT 0,
+  solved      INT          NOT NULL DEFAULT 0,
+  skipped     INT          NOT NULL DEFAULT 0,
+  started_at  DATETIME     NULL DEFAULT CURRENT_TIMESTAMP,
+  ends_at     DATETIME     NOT NULL,
+  finished    TINYINT(1)   NOT NULL DEFAULT 0,
+  finished_at DATETIME     NULL,
+  prize_won   INT          NOT NULL DEFAULT 0,
+  PRIMARY KEY (id),
+  KEY idx_blitz_day (run_date, ranked, score),
+  KEY idx_blitz_user (user_id, started_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

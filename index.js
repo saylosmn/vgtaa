@@ -1,6 +1,6 @@
 /* ============================================================
    Үг Таа — Монгол үг таах тоглоом
-   index.js — v6
+   index.js — v7
    ------------------------------------------------------------
    Бүтэц:
      1. Туслах функцууд (DOM, HTML escape, формат, хадгалалт)
@@ -16,7 +16,7 @@
 'use strict';
 
 (() => {
-  const VERSION = '6.3.0';
+  const VERSION = '7.1.0';
 
   /* ============================================================
      1. ТУСЛАХ ФУНКЦУУД
@@ -151,6 +151,15 @@
     alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
     banknote: '<rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>',
     send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+    bulb: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
+    zap: '<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>',
+    shuffle: '<path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/>',
+    gamepad: '<line x1="6" x2="10" y1="12" y2="12"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="15" x2="15.01" y1="13" y2="13"/><line x1="18" x2="18.01" y1="11" y2="11"/><rect width="20" height="12" x="2" y="6" rx="2"/>',
+    skip: '<polygon points="5 4 15 12 5 20 5 4"/><line x1="19" x2="19" y1="5" y2="19"/>',
+    columns: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 3v18"/>',
+    scale: '<path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>',
+    flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>',
+    heart: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
     external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
   };
   const icon = (name, cls = '') =>
@@ -180,6 +189,8 @@
     premium_days: 30, tournament_fee: 5000, tournament_split: [50, 30, 20], referral_bonus: 2000,
     referral_unlock: 15, min_withdrawal: 20000, max_withdrawal: 2000000, practice_daily_free: 3,
     require_valid_word: false, banks: {},
+    mini_daily_free: 8, mini_play_price: 200, hint_price: 500, hint_price_premium: 250,
+    blitz_seconds: 60, blitz_fee: 1000, blitz_split: [50, 30, 20], blitz_premium_free: 1, blitz_rake: 25,
   };
 
   /* ============================================================
@@ -646,7 +657,9 @@
         ['Мөнгөө яаж авах вэ?', `Хэтэвч хэсгээс банкны данс руугаа татна. Хамгийн багадаа ${money(c.min_withdrawal)}, мөн ${c.referral_unlock} найзаа урьж баталгаажуулсан байх шаардлагатай. Ажлын 1–3 өдөрт шилжүүлнэ.`],
         ['Найз урих гэж юу вэ?', `Өөрийн холбоосоо найздаа илгээ. Найз тань бүртгүүлээд анх удаа үг таамагц танд ${money(c.referral_bonus)} урамшуулал орно.`],
         ['Тэмцээн яаж явагддаг вэ?', `${money(c.tournament_fee)} хураамж төлж, өдрийн үгээ таахаас өмнө нэгдэнэ. Хамгийн цөөн оролдлогоор, хамгийн эрт таасан 3 хүн сангаа ${split} хувиар хуваана.${c.tournament_rake > 0 ? ` Хураамжийн ${c.tournament_rake}% нь үйлчилгээний шимтгэл.` : ''}`],
-        ['Premium гэж юу вэ?', `Сард ${money(c.premium_price)}. ${c.premium_multiplier > 1 ? `${c.premium_multiplier}× шагнал, ` : ''}тэмцээнд үнэгүй оролцох, дасгалыг хязгааргүй тоглох эрх.`],
+        ['Ямар тоглоомууд байгаа вэ?', 'Өдрийн үгээс гадна Хос үг, Үг хайх, Үнэн үү худал уу, Дүүжлүүр, Үг холих, Тайлбар таах, Blitz арена гэсэн 7 тоглоом бий. Тоглоом бүр оноо өгч, 7 хоногийн шилдгийн жагсаалтад тооцогдоно.'],
+        ['Blitz арена гэж юу вэ?', `60 секундэд холимог үгсийг аль болох олноор тайлна. Оноотой тоглолтын хураамж ${money(c.blitz_fee)}. Хураамжийн ${100 - (c.blitz_rake ?? 25)}% шагналын санд орж, маргааш нь өдрийн шилдэг 3 тоглогчид автоматаар хуваарилагдана.`],
+        ['Premium гэж юу вэ?', `Сард ${money(c.premium_price)}. ${c.premium_multiplier > 1 ? `${c.premium_multiplier}× шагнал, ` : ''}тэмцээнд үнэгүй оролцох, бүх тоглоом, дасгалыг хязгааргүй тоглох, Blitz-д өдөр бүр үнэгүй оролцох, сэжүүр хагас үнээр авах эрх.`],
       ];
       $('#faq-list').innerHTML = html`${items.map(([q, a]) => html`<details class="faq-item"><summary>${q}${icon('right', 'chev')}</summary><p>${a}</p></details>`)}`;
     },
@@ -708,9 +721,10 @@
   const TITLES = {
     play: 'Тоглох', archive: 'Дасгал', practice: 'Дасгал', leaders: 'Шилдэгүүд', tournament: 'Тэмцээн', wallet: 'Хэтэвч',
     profile: 'Профайл', referral: 'Найз урих', premium: 'Premium', admin: 'Админ', topup: 'Цэнэглэх',
+    games: 'Тоглоомууд', g: 'Тоглоом',
   };
   /* Дэд хуудас нээгдэхэд доод цэсний аль таб идэвхтэй харагдах вэ */
-  const PARENT_TAB = { archive: 'play', practice: 'play', topup: 'wallet', referral: 'profile', premium: 'profile', admin: 'profile' };
+  const PARENT_TAB = { archive: 'play', practice: 'play', topup: 'wallet', referral: 'profile', premium: 'profile', admin: 'profile', leaders: 'games', g: 'games' };
 
   const Router = {
     current: null,
@@ -745,6 +759,10 @@
       document.title = `${TITLES[page] || 'Тоглох'} — Үг Таа`;
       document.body.dataset.page = section;
       if (section !== 'play' && prev !== this.current) window.scrollTo(0, 0);
+      if (page !== 'g') { Blitz.stop(); Mini.game = null; }
+      if (tab === 'games' && !store.get('seenGames')) store.set('seenGames', true);
+      const gt = $('.tabbar .tab[data-tab="games"]');
+      if (gt) gt.classList.toggle('has-dot', !store.get('seenGames'));
 
       if (isReview) Game.loadReview(args[0]);
       else Pages[page].show(args);
@@ -911,9 +929,11 @@
     tournament: null,
     archive: null,
     reward: 0,
+    hints: [],
+    hinted: false,
 
     reset() {
-      Object.assign(this, { mode: null, date: null, rows: [], current: [], done: false, won: false, answer: null, definition: null, keyStates: {}, stale: false, tournament: null });
+      Object.assign(this, { mode: null, date: null, rows: [], current: [], done: false, won: false, answer: null, definition: null, keyStates: {}, stale: false, tournament: null, hints: [], hinted: false });
     },
 
     active() { return ['play', 'practice', 'review'].includes(Router.current); },
@@ -997,6 +1017,8 @@
       this.done = !!(s && s.is_completed);
       this.won = !!(s && s.is_won);
       this.reward = s ? s.reward_amount : 0;
+      this.hints = s && s.hints ? s.hints.slice() : [];
+      this.hinted = this.hints.length > 0;
       this.answer = g.answer;
       this.definition = g.definition;
       this.current = [];
@@ -1031,10 +1053,12 @@
       if (daily && this.tournament && this.tournament.joined) {
         badges.push(html`<a class="chip chip-target" href="#/tournament">${icon('target')} ${this.tournament.rank ? '#' + this.tournament.rank : 'Тэмцээн'}</a>`);
       }
+      if (this.canHint()) badges.push(html`<button class="icon-btn hint-btn" type="button" data-action="hint" aria-label="Сэжүүр авах" title="Сэжүүр — нэг үсэг нээх">${icon('bulb')}</button>`);
       badges.push(html`<a class="icon-btn" href="#/archive" aria-label="Дасгал" title="Дасгал">${icon('history')}</a>`);
       $('#play-badges').innerHTML = html`${badges}`;
 
       this.renderBanner();
+      this.renderHints();
       this.renderFoot();
       Keyboard.paint();
       requestAnimationFrame(() => Board.fit());
@@ -1073,6 +1097,46 @@
           </div>
         </div>`;
       el.hidden = false;
+    },
+
+    hintLimit() { return Math.max(1, Math.floor(this.length / 2)); },
+    canHint() { return (this.mode === 'daily' || this.mode === 'practice') && !this.done && this.hints.length < this.hintLimit(); },
+
+    renderHints() {
+      const el = $('#hint-strip');
+      const show = this.hints.length > 0 && !this.done && this.mode !== 'review';
+      el.hidden = !show;
+      if (!show) { el.innerHTML = ''; return; }
+      const at = new Map(this.hints.map((h) => [h.pos, h.letter]));
+      el.innerHTML = String(html`<span class="hs-l">${icon('bulb')} Сэжүүр</span>
+        <span class="hs-tiles">${Array.from({ length: this.length }, (_, i) => html`<span class="tile mini" data-state="${at.has(i) ? 'correct' : 'empty'}">${at.get(i) || ''}</span>`)}</span>`);
+    },
+
+    async hint() {
+      if (!this.canHint() || this.busy) return;
+      const c = App.config;
+      const price = App.user && App.user.is_premium ? c.hint_price_premium : c.hint_price;
+      const daily = this.mode === 'daily';
+      const ok = await Modal.confirm({
+        title: 'Сэжүүр авах',
+        message: html`Нэг үсгийг байрлалтай нь нээнэ. Хэтэвчнээс <b>${money(price)}</b> хасагдана.
+          ${daily ? html`<br><br><b>Анхаар:</b> өдрийн үгэнд сэжүүр авбал энэ өдрийн мөнгөн шагнал, шилдгийн оноо авахгүй бөгөөд тэмцээнд нэгдэх боломжгүй. Цуврал тань хадгалагдана.` : ''}`,
+        confirmText: `Нээх — ${money(price)}`,
+      });
+      if (!ok || !this.canHint()) return;
+      this.busy = true;
+      try {
+        const r = await Api.post('hint', { mode: this.mode, id: this.practiceId });
+        this.hints.push({ pos: r.pos, letter: r.letter });
+        this.hinted = true;
+        App.setBalance(r.balance);
+        Toast.show(r.message, 'success');
+        this.render();
+      } catch (e) {
+        moneyError(e);
+      } finally {
+        this.busy = false;
+      }
     },
 
     markStale() {
@@ -1153,6 +1217,7 @@
       this.answer = res.answer;
       this.definition = res.definition;
       this.reward = res.reward_amount || 0;
+      if (res.hinted) this.hinted = true;
       if (res.stats) App.stats = res.stats;
       if (res.tournament) this.tournament = res.tournament;
       const last = this.rows.length - 1;
@@ -1203,6 +1268,7 @@
         ${showGame ? this.answerBlock(g.answer, g.definition, g.won) : ''}
         ${fresh && reward > 0 ? html`<div class="reward-pop"><span class="reward-amt">+${money(reward)}</span>${prem && App.config.premium_multiplier > 1 ? html`<span class="chip chip-gold">${icon('crown')} Premium ×${App.config.premium_multiplier}</span>` : ''}<span class="muted">хэтэвчинд орлоо</span></div>` : ''}
         ${fresh && capped ? html`<div class="note">Өнөөдрийн мөнгөн шагналын квот дууссан байна. Маргааш эрт тоглоорой!</div>` : ''}
+        ${fresh && g.won && g.hinted ? html`<div class="note">${icon('bulb')} Сэжүүр ашигласан тул энэ удаа мөнгөн шагнал, оноо тооцогдоогүй. Цуврал тань хадгалагдлаа!</div>` : ''}
         ${fresh && g.won && !prem && reward > 0 && App.config.premium_multiplier > 1 ? html`<a class="upsell" href="#/premium" data-close>${icon('crown')}<span>Premium бол энэ шагнал <b>${money(reward * App.config.premium_multiplier)}</b> байх байсан</span>${icon('right')}</a>` : ''}
         ${statTiles(s)}
         <h3 class="sub-h">Оролдлогын тархалт</h3>
@@ -1213,7 +1279,7 @@
             <div class="foot-next"><span class="muted">Дараагийн үг</span><b class="mono big" data-countdown>${Clock.format(Clock.left())}</b></div>
             <button class="btn btn-primary" type="button" data-action="share">${icon('share')} Хуваалцах</button>
           </div>
-          <a class="btn btn-ghost btn-block" href="#/archive" data-close>${icon('history')} Дасгал тоглох</a>` : ''}
+          <a class="btn btn-ghost btn-block" href="#/games" data-close>${icon('gamepad')} Бусад тоглоом тоглох</a>` : ''}
       `);
     },
 
@@ -1279,7 +1345,8 @@
           <div class="help-box">
             <div>${icon('gift')}<span>Таавал <b>${money(c.reward_amount)}</b> шагнал шууд хэтэвчинд.</span></div>
             <div>${icon('target')}<span>Тэмцээнд үгээ таахаас <b>өмнө</b> нэгдэнэ.</span></div>
-            <div>${icon('history')}<span>Нэмэлт үг тоглох бол <b>Дасгал</b> горимд ор.</span></div>
+            <div>${icon('bulb')}<span>Гацвал <b>Сэжүүр</b> авч нэг үсэг нээ (өдрийн үгэнд шагналгүй болно).</span></div>
+            <div>${icon('gamepad')}<span><b>Тоглоом</b> цэсэнд Хос үг, Үг хайх, Үнэн үү худал уу, Дүүжлүүр, Үг холих, Тайлбар таах, <b>Blitz арена</b> бий.</span></div>
             <div>${icon('clock')}<span>Шинэ үг Монголын цагаар <b>00:00</b>-д гарна.</span></div>
           </div>
           <p class="muted small">Компьютер дээр англи байрлалтай гараар шууд бичиж болно — монгол стандарт (ФЦУЖ) байрлалаар хөрвүүлнэ.</p>
@@ -1512,12 +1579,935 @@
     },
   };
 
+  /* ── Тоглоомын төв ─────────────────────────────────────── */
+  const GAMES = {
+    duo: {
+      icon: 'columns', title: 'Хос үг', sub: 'Нэг таалтаар хоёр үгийг зэрэг таа', isNew: true,
+      rules: [
+        ['columns', 'Хоёр нууц үг зэрэг байна. Таны бичсэн үг хоёр талбарт хоёуланд нь шалгагдана.'],
+        ['grid', 'Өнгө нь өдрийн үгтэй адил: ногоон — зөв байрлал, шар — үгэнд бий, саарал — байхгүй.'],
+        ['star', '7 оролдлогоор хоёуланг нь таа. Хурдан таах тусам их оноо.'],
+      ],
+    },
+    search: {
+      icon: 'search', title: 'Үг хайх', sub: 'Үсгийн торноос нуугдсан үгсийг ол', isNew: true,
+      rules: [
+        ['search', 'Жагсаалтад байгаа үгс торонд хэвтээ, босоо, ташуу чиглэлд нуугдсан.'],
+        ['arrow', 'Үгийн эхний үсгийг дараад сүүлийн үсгийг дар (эсвэл чирж зур).'],
+        ['star', 'Үг бүр 10 оноо. Бүгдийг хурдан олбол нэмэлт оноо.'],
+      ],
+    },
+    truth: {
+      icon: 'scale', title: 'Үнэн үү, худал уу', sub: 'Тайлбар энэ үгийнх мөн үү?', isNew: true, needsDefs: true,
+      rules: [
+        ['book', 'Үг болон тайлбар гарна. Тайлбар яг энэ үгийнх бол «Үнэн», өөр үгийнх бол «Худал».'],
+        ['flame', 'Дараалан 3+ зөв хариулбал асуулт бүрт +5 урамшуулал.'],
+        ['star', '12 асуулт. 75%-иас дээш зөв бол ялалт.'],
+      ],
+    },
+    hangman: {
+      icon: 'heart', title: 'Дүүжлүүр', sub: 'Үсгээр нь таа — 7 амьтай',
+      rules: [
+        ['heart', 'Үгийн үсгийг нэг нэгээр сонго. Буруу үсэг бүр 1 амь хасна — нийт 7 амь.'],
+        ['book', 'Үгийн тайлбар сэжүүр болж харагдана.'],
+        ['star', 'Цөөн алдаатай таавал илүү их оноо.'],
+      ],
+    },
+    anagram: {
+      icon: 'shuffle', title: 'Үг холих', sub: 'Холилдсон үсгээс үгээ сэргээ',
+      rules: [
+        ['shuffle', 'Холилдсон үсгүүдийг дарж зөв дараалалд байрлуул. Буруу байрлуулсан үсгээ дарж буцаана.'],
+        ['bulb', 'Сэжүүр эхний үсгийг нээнэ, гэхдээ оноо хасагдана.'],
+        ['star', '3 оролдлого. Ижил үсгүүдтэй өөр жинхэнэ үг ч тооцогдоно!'],
+      ],
+    },
+    quiz: {
+      icon: 'book', title: 'Тайлбар таах', sub: 'Тайлбараас зөв үгийг сонго', needsDefs: true,
+      rules: [
+        ['book', 'Тайлбарыг уншаад 4 хувилбараас зөв үгийг сонго.'],
+        ['star', 'Зөв хариулт бүр 10 оноо. 70%-иас дээш бол ялалт.'],
+        ['clock', 'Нэг тоглолтод 10 асуулт.'],
+      ],
+    },
+    blitz: {
+      icon: 'zap', title: 'Blitz арена', sub: '60 секундэд аль болох олон үг',
+      rules: [
+        ['clock', '60 секундэд аль болох олон холимог үг тайл.'],
+        ['star', 'Үг бүр үсэг × 10 оноо. Ижил үсэгтэй өөр жинхэнэ үг ч тооцогдоно.'],
+        ['skip', 'Хэцүү үгийг алгасаж болно — оноо хасагдахгүй, цаг л зарцуулна.'],
+        ['trophy', 'Оноотой тоглолтын шилдэг 3 нь маргааш шагналын санг хуваана.'],
+      ],
+    },
+  };
+  const MINI_ORDER = ['duo', 'search', 'truth', 'hangman', 'anagram', 'quiz'];
+
+  /** Үлдэгдэл хүрэлцэхгүй бол цэнэглэх хуудас руу чиглүүлнэ */
+  const moneyError = (e) => {
+    Toast.error(e);
+    if (e.code === 'insufficient_balance') setTimeout(() => Router.nav('topup'), 1200);
+  };
+
+  /** Үнэгүй эрх дууссан (402) бол төлбөрийг зөвшөөрүүлээд дахин илгээнэ. Болих дарвал null. */
+  const withPay = async (action, body) => {
+    try {
+      return await Api.post(action, body);
+    } catch (e) {
+      if (e.code !== 'mini_pay_required') throw e;
+      const price = App.config.mini_play_price;
+      const ok = await Modal.confirm({
+        title: 'Үнэгүй эрх дууслаа',
+        message: html`${e.message}<br><br>Хэтэвчнээс <b>${money(price)}</b> хасаж тоглох уу? <a href="#/premium">Premium</a> бол хязгааргүй.`,
+        confirmText: `Тоглох — ${money(price)}`,
+      });
+      if (!ok) return null;
+      return Api.post(action, { ...body, pay: true });
+    }
+  };
+
+  const allowanceChip = (a, compact = false) => a.unlimited
+    ? html`<span class="chip chip-gold" title="Premium — хязгааргүй">${icon('crown')}${compact ? '' : ' Хязгааргүй'}</span>`
+    : html`<span class="chip" title="Өнөөдрийн үнэгүй тоглолт" aria-label="Өнөөдөр ${a.left}/${a.limit} үнэгүй тоглолт">${icon('gamepad')} <span><b>${a.left}</b>/${a.limit}${compact ? '' : ' үнэгүй'}</span></span>`;
+
+  const rulesModal = (kind) => {
+    const g = GAMES[kind];
+    Modal.open({
+      title: g.title,
+      body: html`<ul class="mi-rules">${g.rules.map(([ic, t]) => html`<li>${icon(ic)}<span>${t}</span></li>`)}</ul>
+        <button class="btn btn-primary btn-block" type="button" data-close data-autofocus>Ойлголоо</button>`,
+    });
+  };
+
+  Pages.games = {
+    async show() {
+      const el = $('#page-games');
+      const sub = 'Оноо цуглуулж 7 хоногийн шилдэгт ор. Blitz аренад мөнгөн шагнал!';
+      if (!el.innerHTML.trim()) el.innerHTML = html`${pageHead('Тоглоомууд', sub)}${skeleton(5)}`;
+      try {
+        const r = await Api.get('games');
+        const a = r.allowance, ar = r.arena, me = App.user, per = r.per_game || {};
+        const tile = (k) => {
+          const g = GAMES[k];
+          const off = g.needsDefs && !r.quiz_ready;
+          const open = r.open.includes(k);
+          const p = per[k];
+          const foot = open
+            ? html`<span class="gt-live"><span class="pulse-dot"></span> Үргэлжлүүлэх</span>`
+            : p && p.played ? html`<span class="gt-stat">${icon('star')} Шилдэг ${fmt(p.best)}</span>` : g.isNew ? html`<span class="gt-new">Шинэ</span>` : html`<span class="gt-stat">Тоглож үзээгүй</span>`;
+          return html`<a class="game-tile gc-${k} ${off ? 'off' : ''}" href="${off ? '#/games' : '#/g/' + k}" ${off ? raw('aria-disabled="true"') : ''}>
+            <span class="gc-ic">${icon(g.icon)}</span>
+            <b class="gt-title">${g.title}</b>
+            <small class="gt-sub">${off ? 'Үгэнд тайлбар нэмэгдмэгц нээгдэнэ' : g.sub}</small>
+            ${foot}
+          </a>`;
+        };
+        el.innerHTML = html`${pageHead('Тоглоомууд', sub, allowanceChip(a))}
+          <a class="arena-card" href="#/g/blitz">
+            <div class="arena-top"><span class="chip chip-live"><span class="pulse-dot"></span> Blitz арена</span><span class="muted">${ar.participants} оролцогч</span></div>
+            <div class="arena-pool"><small>Өнөөдрийн шагналын сан</small><b>${money(ar.pool)}</b></div>
+            <div class="arena-sub">${icon('zap')}<span>60 секундэд холимог үгс тайл. Шилдэг 3 нь маргааш шагнал авна.</span></div>
+            <div class="arena-foot">
+              ${ar.me ? html`<span>Таны шилдэг: <b>${fmt(ar.me.best)}</b>${ar.me.rank ? ` · #${ar.me.rank}` : ''}</span>` : html`<span>${ar.free_left > 0 ? 'Premium: өнөөдөр үнэгүй оролцоно' : `Хураамж ${money(ar.fee)}`}</span>`}
+              <span class="btn btn-gold btn-sm">Тоглох ${icon('arrow')}</span>
+            </div>
+          </a>
+          <div class="game-grid">${MINI_ORDER.map(tile)}</div>
+          <div class="game-list">
+            <a class="game-card gc-practice" href="#/archive"><span class="gc-ic">${icon('grid')}</span><span class="gc-main"><b>Дасгал</b><small>Өдрийн үгийн дүрмээр нэмэлт үг</small></span>${icon('right', 'chev')}</a>
+            <a class="game-card gc-leaders" href="#/leaders"><span class="gc-ic">${icon('trophy')}</span><span class="gc-main"><b>Өдрийн үгийн шилдэгүүд</b><small>Өдөр, 7 хоног, сарын жагсаалт</small></span>${icon('right', 'chev')}</a>
+          </div>
+          ${a.unlimited ? '' : html`<a class="note note-link" href="#/premium">${icon('crown')}<span>Өдөрт ${a.limit} тоглолт үнэгүй, дараа нь ${money(a.price)}. Premium бол хязгааргүй.</span>${icon('right')}</a>`}
+          <h2 class="sub-h">7 хоногийн тоглоомын оноо</h2>
+          ${r.leaders.length ? html`<ol class="list">${r.leaders.map((x) => html`
+            <li class="list-item ${x.id === me.id ? 'me' : ''}">
+              <span class="rank">${x.rank}</span>
+              ${avatar(x.avatar_url, x.username, 36, x.is_premium ? 'ring-gold' : '')}
+              <span class="li-main"><span class="li-title">${x.username}</span></span>
+              <span class="li-end"><b>${fmt(x.points)}</b><small>оноо</small></span>
+            </li>`)}</ol>` : html`<p class="muted small">Энэ долоо хоногт хэн ч оноо аваагүй байна. Анхных нь болоорой!</p>`}
+          <div class="me-bar">${r.me
+            ? html`<span class="rank">${r.me.rank}</span><span class="li-main"><span class="li-title">Таны байр</span><span class="li-sub">Нийт ${r.mine.played} тоглолт · ${r.mine.won} ялалт</span></span><span class="li-end"><b>${fmt(r.me.points)}</b><small>оноо</small></span>`
+            : html`<span class="li-main"><span class="li-title">Та энэ 7 хоногт оноо аваагүй</span><span class="li-sub">Дурын тоглоом тоглож оноо цуглуул</span></span>`}</div>`;
+      } catch (e) {
+        el.innerHTML = html`${pageHead('Тоглоомууд', sub)}${errorBox(e, 'games')}`;
+      }
+    },
+  };
+
+  /* ── Үсэг байрлуулагч (Үг холих, Blitz) ────────────────── */
+  const Builder = {
+    make(letters, prefix = '') {
+      const b = { letters: letters.slice(), used: letters.map(() => false), locked: [], picked: [], order: letters.map((_, i) => i) };
+      for (const ch of Array.from(prefix)) {
+        const i = b.letters.findIndex((x, j) => x === ch && !b.used[j]);
+        if (i >= 0) { b.used[i] = true; b.locked.push(i); }
+      }
+      return b;
+    },
+    word(b) { return [...b.locked, ...b.picked].map((i) => b.letters[i]).join(''); },
+    full(b) { return b.locked.length + b.picked.length === b.letters.length; },
+    pick(b, i) {
+      if (b.used[i] || this.full(b)) return false;
+      b.used[i] = true;
+      b.picked.push(i);
+      buzz(8);
+      return true;
+    },
+    pickChar(b, ch) {
+      const i = b.order.find((j) => !b.used[j] && b.letters[j] === ch);
+      return i != null && this.pick(b, i);
+    },
+    back(b) {
+      const i = b.picked.pop();
+      if (i == null) return false;
+      b.used[i] = false;
+      return true;
+    },
+    unpick(b, slot) {
+      const k = slot - b.locked.length;
+      if (k < 0 || k >= b.picked.length) return false;
+      const [i] = b.picked.splice(k, 1);
+      b.used[i] = false;
+      return true;
+    },
+    clear(b) { b.picked.forEach((i) => { b.used[i] = false; }); b.picked = []; },
+    shuffle(b) {
+      for (let i = b.order.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [b.order[i], b.order[j]] = [b.order[j], b.order[i]];
+      }
+    },
+    view(b) {
+      const slots = [...b.locked.map((i) => [b.letters[i], 'correct']), ...b.picked.map((i) => [b.letters[i], 'tbd'])];
+      while (slots.length < b.letters.length) slots.push(['', 'empty']);
+      return html`<div class="bld-slots" style="--n:${b.letters.length}">${slots.map(([ch, st], k) =>
+        html`<button type="button" class="tile bld-slot" data-state="${st}" data-slot="${k}" ${st !== 'tbd' ? raw('tabindex="-1"') : ''} aria-label="${ch || 'хоосон'}">${ch}</button>`)}</div>
+        <div class="bld-pool">${b.order.map((i) => html`<button type="button" class="bld-key" data-pool="${i}" ${b.used[i] ? raw('disabled') : ''}>${b.letters[i]}</button>`)}</div>`;
+    },
+    shake() {
+      const s = $('.bld-slots');
+      if (!s) return;
+      s.classList.remove('shake');
+      void s.offsetWidth;
+      s.classList.add('shake');
+      buzz(40);
+    },
+  };
+
+  const miniHead = (kind, right = '') => html`<header class="mini-head">
+    <a class="icon-btn" href="#/games" aria-label="Тоглоомууд руу буцах">${icon('left')}</a>
+    <div class="mini-title"><span class="gc-ic sm gc-${kind}">${icon(GAMES[kind].icon)}</span><h1>${GAMES[kind].title}</h1></div>
+    <div class="mini-right" id="mini-right">${right}</div>
+    <button class="icon-btn" type="button" data-action="mini-rules" data-kind="${kind}" aria-label="Дүрэм">${icon('help')}</button>
+  </header>`;
+
+  const SEARCH_COLORS = 6;
+  const sameCell = (a, b) => a && b && a[0] === b[0] && a[1] === b[1];
+  /** Хоёр нүд нэг шулуун дээр (хэвтээ, босоо, ташуу) байгаа эсэх */
+  const inLine = (a, b) => {
+    const dr = b[0] - a[0], dc = b[1] - a[1];
+    return !sameCell(a, b) && (dr === 0 || dc === 0 || Math.abs(dr) === Math.abs(dc));
+  };
+  const lineCells = (a, b) => {
+    const dr = Math.sign(b[0] - a[0]), dc = Math.sign(b[1] - a[1]);
+    const n = Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1]));
+    return Array.from({ length: n + 1 }, (_, k) => [a[0] + dr * k, a[1] + dc * k]);
+  };
+
+  /* ── Мини тоглоомууд ──────────────────────────────────── */
+  const Mini = {
+    game: null,
+    s: null,
+    b: null,
+    allow: null,
+    busy: false,
+    cur: [],        // Хос үг: бичиж буй үг
+    sel: null,      // Үг хайх: сонгосон эхний нүд
+    drag: null,
+    dragEnd: 0,
+    el() { return $('#page-g'); },
+    current() { return this.game === 'blitz' ? Blitz : this; },
+
+    async open(kind) {
+      Blitz.stop();
+      if (kind === 'blitz') { this.game = 'blitz'; Blitz.open(); return; }
+      if (!GAMES[kind]) { Router.nav('games'); return; }
+      this.game = kind;
+      this.s = null;
+      const el = this.el();
+      el.innerHTML = html`${miniHead(kind)}${skeleton(3)}`;
+      try {
+        const r = await Api.get('mini', { game: kind });
+        if (this.game !== kind) return;
+        this.allow = r.allowance;
+        if (r.game) this.set(r.game);
+        else this.intro();
+      } catch (e) {
+        el.innerHTML = html`${miniHead(kind)}${errorBox(e, 'g')}`;
+      }
+    },
+
+    intro() {
+      const k = this.game, g = GAMES[k], a = this.allow;
+      this.el().innerHTML = html`${miniHead(k, allowanceChip(a, true))}
+        <div class="card mini-intro">
+          <div class="mi-hero gc-${k}">${icon(g.icon)}</div>
+          <p class="mi-lead">${g.sub}</p>
+          <ul class="mi-rules">${g.rules.map(([ic, t]) => html`<li>${icon(ic)}<span>${t}</span></li>`)}</ul>
+          <button class="btn btn-primary btn-block btn-lg" type="button" data-action="mini-start" data-autofocus>${icon('arrow')} Эхлэх</button>
+          <p class="muted small center">${a.unlimited ? 'Premium — хязгааргүй тоглоно.' : a.left > 0 ? `Өнөөдөр ${a.left} үнэгүй тоглолт үлдсэн.` : `Үнэгүй эрх дууссан — нэг тоглолт ${money(App.config.mini_play_price)}.`}</p>
+        </div>`;
+    },
+
+    async start(btn) {
+      if (this.busy || this.game === 'blitz' || !this.game) return;
+      this.busy = true;
+      if (btn) btn.disabled = true;
+      try {
+        const r = await withPay('mini_start', { game: this.game });
+        if (!r) return;
+        this.allow = r.allowance;
+        if (App.user && r.balance !== App.user.balance) App.setBalance(r.balance);
+        this.set(r.game);
+        window.scrollTo(0, 0);
+      } catch (e) {
+        moneyError(e);
+      } finally {
+        this.busy = false;
+        if (btn && btn.isConnected) btn.disabled = false;
+      }
+    },
+
+    set(g) {
+      const fresh = !this.s || this.s.id !== g.id;
+      const wasDone = !fresh && this.s.completed;
+      this.s = g;
+      if (fresh) { this.cur = []; this.sel = null; }
+      if (g.game === 'anagram') this.b = Builder.make(g.letters, g.prefix);
+      this.render();
+      if (g.completed && !wasDone) {
+        if (g.is_won) { setTimeout(() => Confetti.burst(), 200); buzz([30, 60, 30]); }
+        const res = $('.mini-result');
+        if (res) setTimeout(() => res.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'center' }), 250);
+      }
+    },
+
+    render() {
+      const s = this.s;
+      const body = this[s.game](s);
+      this.el().innerHTML = html`${miniHead(s.game, s.completed ? '' : this.status())}${body}${s.completed ? this.result(s) : ''}`;
+    },
+
+    status() {
+      const s = this.s;
+      switch (s.game) {
+        case 'hangman': return html`<span class="chip chip-hearts" aria-label="Үлдсэн амь">${icon('heart')} <span>${s.lives}/${s.max_lives}</span></span>`;
+        case 'anagram': return html`<span class="chip"><span>Оролдлого <b>${s.tries}</b>/${s.max_tries}</span></span>`;
+        case 'duo': return html`<span class="chip"><span><b>${s.max_attempts - s.rows.length}</b> оролдлого</span></span>`;
+        case 'search': return html`<span class="chip"><span><b>${s.words.filter((w) => w.found).length}</b>/${s.words.length} үг</span></span>`;
+        case 'truth': return html`<span class="chip ${s.streak >= 3 ? 'chip-flame' : ''}">${icon(s.streak >= 3 ? 'flame' : 'star')} <span>${s.points}</span></span>`;
+        default: return html`<span class="chip">${icon('check')} <span>${s.correct}/${s.total}</span></span>`;
+      }
+    },
+
+    /* ─ Дүүжлүүр ─ */
+    hangman(s) {
+      const guessed = new Map(s.guessed.map((x) => [x.l, x.hit]));
+      const keys = LAYOUTS[Prefs.get('layout')] || LAYOUTS.mn;
+      const tileState = (ch) => (!ch ? 'empty' : guessed.has(ch) ? 'correct' : 'present');
+      return html`
+        <div class="hm-lives" role="img" aria-label="${s.lives} амь үлдсэн">${Array.from({ length: s.max_lives }, (_, i) => html`<span class="${i < s.lives ? 'on' : ''}">${icon('heart')}</span>`)}</div>
+        <div class="hm-word" style="--n:${s.pattern.length}" aria-label="${s.pattern.length} үсэгтэй үг">${s.pattern.map((ch) => html`<span class="tile" data-state="${tileState(ch)}">${ch}</span>`)}</div>
+        ${s.clue ? html`<div class="clue">${icon('book')}<p>${s.clue}</p></div>` : html`<p class="muted small center">${s.pattern.length} үсэгтэй үг</p>`}
+        ${s.completed ? '' : html`<div class="keyboard hm-keys">${keys.map((row) => html`<div class="kb-row">${row.filter((k) => k !== 'back').map((k) => {
+          const st = guessed.has(k) ? (guessed.get(k) ? 'correct' : 'absent') : '';
+          return html`<button type="button" class="key" data-letter="${k}" ${st ? raw(`data-state="${st}" disabled`) : ''}>${k}</button>`;
+        })}</div>`)}</div>`}`;
+    },
+
+    /* ─ Үг холих ─ */
+    anagram(s) {
+      const wrong = s.wrong.length ? html`<div class="wrong-list" aria-label="Буруу оролдлогууд">${s.wrong.map((w) => html`<span class="chip chip-bad">${w}</span>`)}</div>` : '';
+      if (s.completed) return wrong;
+      const len = s.letters.length;
+      return html`
+        <p class="muted center mini-lead">${len} үсэгтэй үгийг сэргээ</p>
+        <div id="bld">${Builder.view(this.b)}</div>
+        ${wrong}
+        <div class="mini-actions">
+          <button class="btn btn-ghost btn-sm" type="button" data-action="bld-shuffle">${icon('shuffle')} Холих</button>
+          <button class="btn btn-ghost btn-sm" type="button" data-action="bld-clear">${icon('backspace')} Арилгах</button>
+          <button class="btn btn-ghost btn-sm" type="button" data-action="mini-hint" ${Array.from(s.prefix).length >= len - 1 ? raw('disabled') : ''}>${icon('bulb')} Сэжүүр <small>−10</small></button>
+        </div>
+        <button class="btn btn-primary btn-block btn-lg" type="button" data-action="mini-submit" id="mini-submit" ${Builder.full(this.b) ? '' : raw('disabled')}>Шалгах ${icon('enter')}</button>`;
+    },
+
+    /* ─ Тайлбар таах ─ */
+    quiz(s) {
+      if (s.completed) return '';
+      const q = s.question;
+      return html`
+        <div class="quiz-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${s.total}" aria-valuenow="${s.index}"><span style="width:${(s.index / Math.max(1, s.total)) * 100}%"></span></div>
+        <p class="muted small center">Асуулт ${s.index + 1}/${s.total}</p>
+        <div class="clue clue-big">${icon('book')}<p>${q ? q.clue : ''}</p></div>
+        <div class="quiz-opts">${(q ? q.options : []).map((w, i) => html`<button type="button" class="quiz-opt" data-choice="${i}"><span class="qo-n">${i + 1}</span><b>${w}</b></button>`)}</div>
+        <p class="muted small center kb-hint">Компьютер дээр 1–4 товчоор хариулж болно</p>`;
+    },
+
+    /* ─ Хос үг ─ */
+    duoBoard(s, idx) {
+      const n = s.length, rows = [];
+      const done = s.solved[idx];
+      for (let i = 0; i < s.max_attempts; i++) {
+        const r = s.rows[i];
+        let cells;
+        if (r && r.r[idx]) cells = Array.from(r.g).map((ch, c) => [ch, r.r[idx][c]]);
+        else if (r) cells = Array.from({ length: n }, () => ['', 'void']);
+        else if (i === s.rows.length && !done && !s.completed) cells = Array.from({ length: n }, (_, c) => [this.cur[c] || '', this.cur[c] ? 'tbd' : 'empty']);
+        else cells = Array.from({ length: n }, () => ['', done ? 'void' : 'empty']);
+        rows.push(html`<div class="duo-row">${cells.map(([ch, st]) => html`<span class="tile" data-state="${st}">${ch}</span>`)}</div>`);
+      }
+      return html`<div class="duo-board ${done ? 'solved' : ''}" style="--cols:${n}" aria-label="${idx + 1}-р үг${done ? ' — тааагдсан' : ''}">
+        <div class="duo-label">${done ? html`${icon('check')} ${idx + 1}-р үг` : `${idx + 1}-р үг`}</div>
+        ${rows}
+      </div>`;
+    },
+
+    duoKeys(s) {
+      const rank = { absent: 1, present: 2, correct: 3 };
+      const st = [{}, {}];
+      s.rows.forEach((r) => [0, 1].forEach((b) => {
+        if (!r.r[b]) return;
+        Array.from(r.g).forEach((ch, i) => {
+          const v = r.r[b][i];
+          if (!st[b][ch] || rank[v] > rank[st[b][ch]]) st[b][ch] = v;
+        });
+      }));
+      const col = (v) => (v ? `var(--${v === 'absent' ? 'absent' : v})` : 'var(--key-bg)');
+      const layout = LAYOUTS[Prefs.get('layout')] || LAYOUTS.mn;
+      const key = (k) => {
+        if (k === 'back') return html`<button type="button" class="key key-back" data-duo-key="back" aria-label="Устгах">${icon('backspace')}</button>`;
+        const l = s.solved[0] ? null : st[0][k], r = s.solved[1] ? null : st[1][k];
+        const dead = (s.solved[0] || l === 'absent') && (s.solved[1] || r === 'absent') && (l || r);
+        return html`<button type="button" class="key duo-key ${dead ? 'dead' : ''}" data-duo-key="${k}" style="--kl:${col(l)};--kr:${col(r)}" ${l || r ? raw('data-painted="1"') : ''}>${k}</button>`;
+      };
+      return html`<div class="keyboard duo-keys" role="group" aria-label="Гар">
+        ${layout.map((row) => html`<div class="kb-row">${row.map(key)}</div>`)}
+        <div class="kb-row kb-row-enter"><button type="button" class="key key-enter" data-duo-key="enter">Илгээх ${icon('enter')}</button></div>
+      </div>`;
+    },
+
+    duo(s) {
+      return html`
+        <div class="duo-boards">${this.duoBoard(s, 0)}${this.duoBoard(s, 1)}</div>
+        ${s.completed ? '' : this.duoKeys(s)}`;
+    },
+
+    redrawDuo() {
+      const s = this.s;
+      const boards = $('.duo-boards');
+      if (boards) boards.innerHTML = String(html`${this.duoBoard(s, 0)}${this.duoBoard(s, 1)}`);
+    },
+
+    duoKey(k) {
+      const s = this.s;
+      if (!s || s.game !== 'duo' || s.completed || this.busy) return;
+      if (k === 'enter') { this.submitDuo(); return; }
+      if (k === 'back') { if (this.cur.length) { this.cur.pop(); this.redrawDuo(); } return; }
+      if (this.cur.length >= s.length) return;
+      this.cur.push(k);
+      buzz(8);
+      this.redrawDuo();
+    },
+
+    async submitDuo() {
+      const s = this.s;
+      if (this.cur.length < s.length) {
+        Toast.show(`${s.length} үсэгтэй үг бичнэ үү`);
+        this.shakeDuo();
+        return;
+      }
+      const guess = this.cur.join('');
+      if (s.rows.some((r) => r.g === guess)) { Toast.show('Энэ үгийг аль хэдийн оруулсан'); this.shakeDuo(); return; }
+      const r = await this.move({ guess });
+      if (!r) { this.shakeDuo(); return; }
+      this.cur = [];
+      this.set(r.game);
+      if (!r.game.completed && r.game.solved.filter(Boolean).length > s.solved.filter(Boolean).length) Toast.show('Нэг үгийг таалаа! 🎯', 'success');
+    },
+
+    shakeDuo() {
+      $$('.duo-board:not(.solved) .duo-row').forEach((row, i, all) => {
+        const idx = this.s.rows.length;
+        if (i % this.s.max_attempts !== idx) return;
+        row.classList.remove('shake');
+        void row.offsetWidth;
+        row.classList.add('shake');
+      });
+      buzz(40);
+    },
+
+    /* ─ Үг хайх ─ */
+    search(s) {
+      const color = new Map();
+      s.words.forEach((w, i) => { if (w.cells) w.cells.forEach(([r, c]) => color.set(r + ',' + c, (i % SEARCH_COLORS) + 1)); });
+      const sel = this.sel;
+      return html`
+        <p class="muted small center mini-lead">${s.completed ? '' : 'Үгийн эхний үсгийг дараад сүүлийн үсгийг дар'}</p>
+        <div class="ws-grid" style="--n:${s.size}" role="grid" aria-label="Үсгийн тор">${s.grid.map((row, r) => row.map((ch, c) => {
+          const k = color.get(r + ',' + c);
+          return html`<button type="button" class="ws-cell ${k ? 'f' + k : ''} ${sameCell(sel, [r, c]) ? 'sel' : ''}" data-cell="${r},${c}" ${s.completed ? raw('disabled') : ''}>${ch}</button>`;
+        }))}</div>
+        <div class="ws-words">${s.words.map((w, i) => html`<span class="ws-word ${w.found ? 'found f' + ((i % SEARCH_COLORS) + 1) : ''} ${!w.found && w.cells ? 'missed' : ''}">${w.found ? icon('check') : ''}${w.w}</span>`)}</div>
+        ${s.completed ? '' : html`<div class="mini-actions"><button class="btn btn-ghost btn-sm" type="button" data-action="ws-giveup">${icon('flag')} Бууж өгөх</button></div>`}`;
+    },
+
+    cellAt(el) {
+      const c = el && el.closest && el.closest('[data-cell]');
+      return c ? c.dataset.cell.split(',').map(Number) : null;
+    },
+
+    highlight(a, b) {
+      $$('.ws-cell.trace').forEach((x) => x.classList.remove('trace'));
+      if (!a || !b || !inLine(a, b)) return;
+      lineCells(a, b).forEach(([r, c]) => { const x = $(`.ws-cell[data-cell="${r},${c}"]`); if (x) x.classList.add('trace'); });
+    },
+
+    cellTap(cell) {
+      const s = this.s;
+      if (!s || s.game !== 'search' || s.completed || this.busy) return;
+      if (!this.sel) { this.sel = cell; this.markSel(); buzz(8); return; }
+      if (sameCell(this.sel, cell)) { this.sel = null; this.markSel(); return; }
+      if (!inLine(this.sel, cell)) { this.sel = cell; this.markSel(); buzz(8); return; }
+      this.submitSearch(this.sel, cell);
+    },
+
+    markSel() {
+      $$('.ws-cell.sel').forEach((x) => x.classList.remove('sel'));
+      if (this.sel) { const x = $(`.ws-cell[data-cell="${this.sel[0]},${this.sel[1]}"]`); if (x) x.classList.add('sel'); }
+    },
+
+    async submitSearch(a, b) {
+      this.highlight(a, b);
+      const r = await this.move({ a, b });
+      this.sel = null;
+      if (!r) { this.highlight(); this.markSel(); return; }
+      if (r.move.found) {
+        buzz([15, 30, 15]);
+        this.set(r.game);
+      } else {
+        const trace = $$('.ws-cell.trace');
+        trace.forEach((x) => x.classList.add('miss'));
+        buzz(40);
+        setTimeout(() => { trace.forEach((x) => x.classList.remove('trace', 'miss')); this.markSel(); }, 420);
+      }
+    },
+
+    async giveUp() {
+      const ok = await Modal.confirm({ title: 'Бууж өгөх үү?', message: 'Олоогүй үгсийн байрлал харагдаж, тоглоом дуусна. Олсон үгсийн оноо тань хадгалагдана.', confirmText: 'Бууж өгөх', danger: true });
+      if (!ok) return;
+      const r = await this.move({ giveup: true });
+      if (r) this.set(r.game);
+    },
+
+    /* ─ Үнэн үү, худал уу ─ */
+    truth(s) {
+      if (s.completed) return '';
+      const c = s.card;
+      return html`
+        <div class="quiz-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${s.total}" aria-valuenow="${s.index}"><span style="width:${(s.index / Math.max(1, s.total)) * 100}%"></span></div>
+        <p class="muted small center">Асуулт ${s.index + 1}/${s.total}${s.streak >= 2 ? html` · <span class="streak">${icon('flame')} ${s.streak} дараалан</span>` : ''}</p>
+        <div class="tf-card" id="tf-card">
+          <div class="tf-word">${c ? c.word : ''}</div>
+          <div class="tf-clue">${icon('book')}<p>${c ? c.clue : ''}</p></div>
+          <div class="tf-verdict" id="tf-verdict" aria-live="polite"></div>
+        </div>
+        <div class="tf-actions">
+          <button type="button" class="tf-btn tf-no" data-truth="0">${icon('x')}<span>Худал</span></button>
+          <button type="button" class="tf-btn tf-yes" data-truth="1">${icon('check')}<span>Үнэн</span></button>
+        </div>
+        <p class="muted small center kb-hint">Компьютер дээр ← худал, → үнэн</p>`;
+    },
+
+    async answerTruth(v) {
+      const s = this.s;
+      if (!s || s.game !== 'truth' || s.completed || this.busy) return;
+      $$('.tf-btn').forEach((b) => { b.disabled = true; });
+      const r = await this.move({ answer: v });
+      if (!r) { $$('.tf-btn').forEach((b) => { b.disabled = false; }); return; }
+      const m = r.move;
+      const card = $('#tf-card'), verdict = $('#tf-verdict');
+      if (card) card.classList.add(m.correct ? 'good' : 'bad');
+      if (verdict) {
+        verdict.innerHTML = String(html`${icon(m.correct ? 'check' : 'x')} <b>${m.correct ? `Зөв! +${m.gain}` : 'Буруу'}</b>
+          <span>${m.truth ? 'Энэ тайлбар яг энэ үгийнх.' : html`Энэ бол <b>${m.real}</b> гэдэг үгийн тайлбар.`}</span>`);
+      }
+      if (!m.correct) buzz(40);
+      await sleep(m.correct ? 700 : 1500);
+      if (Router.current === 'g' && this.game === 'truth') this.set(r.game);
+    },
+
+    /* ─ Үр дүн ─ */
+    result(s) {
+      const won = s.is_won;
+      const record = s.score > 0 && s.best != null && s.score >= s.best;
+      const titles = {
+        quiz: won ? 'Гайхалтай! 🎉' : 'Сайн оролдлого!',
+        truth: won ? 'Гайхалтай! 🎉' : 'Сайн оролдлого!',
+        search: won ? 'Бүгдийг оллоо! 🎉' : 'Тоглоом дууслаа',
+        duo: won ? 'Хоёуланг нь таалаа! 🎉' : s.solved && s.solved.some(Boolean) ? 'Нэгийг нь таалаа!' : 'Энэ удаа бүтсэнгүй',
+      };
+      const title = titles[s.game] || (won ? 'Таалаа! 🎉' : 'Энэ удаа бүтсэнгүй');
+      let detail = '';
+      if (s.game === 'anagram') detail = Result.answerBlock(s.answer, s.definition, won);
+      else if (s.game === 'duo') detail = html`<div class="duo-answers">${Result.answerBlock(s.answer, s.definition, s.solved[0])}${Result.answerBlock(s.answer2, s.definition2, s.solved[1])}</div>`;
+      else if (s.game === 'quiz' || s.game === 'truth') {
+        detail = html`<p class="center"><b>${s.correct}/${s.total}</b> зөв хариулт</p>
+          <ul class="quiz-hist">${s.history.map((h) => html`<li class="${h.ok ? 'ok' : ''}">${icon(h.ok ? 'check' : 'x')}<span>${h.w}</span></li>`)}</ul>`;
+      } else if (s.game === 'search') detail = html`<p class="center muted">${s.words.filter((w) => w.found).length}/${s.words.length} үг олсон</p>`;
+      return html`<div class="card mini-result ${won ? 'won' : ''}" aria-live="polite">
+        <div class="mr-title">${title}</div>
+        ${detail}
+        <div class="mr-score">${s.score > 0 ? `+${fmt(s.score)} оноо` : '0 оноо'}</div>
+        ${record ? html`<div class="mr-record">${icon('trophy')} Шинэ дээд амжилт!</div>` : s.best ? html`<div class="muted small">Таны шилдэг: ${fmt(s.best)}</div>` : ''}
+        <div class="modal-actions">
+          <a class="btn btn-ghost" href="#/games">${icon('gamepad')} Бусад</a>
+          <button class="btn btn-primary" type="button" data-action="mini-start">${icon('refresh')} Дахин тоглох</button>
+        </div>
+        <p class="muted small">Enter — дахин тоглох</p>
+      </div>`;
+    },
+
+    redrawBuilder() {
+      const box = $('#bld');
+      if (!box) return;
+      box.innerHTML = String(Builder.view(this.b));
+      const sub = $('#mini-submit');
+      if (sub) sub.disabled = !Builder.full(this.b);
+    },
+
+    async move(body) {
+      if (this.busy || !this.s || this.s.completed) return null;
+      this.busy = true;
+      try {
+        return await Api.post('mini_move', { id: this.s.id, ...body });
+      } catch (e) {
+        Toast.error(e);
+        if (e.status === 409) this.open(this.game);
+        return null;
+      } finally {
+        this.busy = false;
+      }
+    },
+
+    async letter(ch) {
+      if (!this.s || this.s.game !== 'hangman' || this.s.completed) return;
+      if (this.s.guessed.some((x) => x.l === ch)) return;
+      const r = await this.move({ letter: ch });
+      if (!r) return;
+      if (!r.move.hit) buzz(40);
+      this.set(r.game);
+    },
+
+    async submitAnagram() {
+      if (!this.s || this.s.game !== 'anagram' || !Builder.full(this.b)) return;
+      const r = await this.move({ guess: Builder.word(this.b) });
+      if (!r) return;
+      if (!r.move.ok && !r.game.completed) {
+        Builder.shake();
+        Toast.show('Буруу байна — дахин оролдоорой');
+        setTimeout(() => this.set(r.game), 450);
+        return;
+      }
+      this.set(r.game);
+    },
+
+    async hint() {
+      const r = await this.move({ hint: true });
+      if (r) this.set(r.game);
+    },
+
+    async choose(i, btn) {
+      if (!this.s || this.s.game !== 'quiz' || this.busy) return;
+      $$('.quiz-opt').forEach((b) => { b.disabled = true; });
+      const r = await this.move({ choice: i });
+      if (!r) { $$('.quiz-opt').forEach((b) => { b.disabled = false; }); return; }
+      const opts = $$('.quiz-opt');
+      if (opts[r.move.right]) opts[r.move.right].classList.add('good');
+      if (!r.move.correct) { btn.classList.add('bad'); buzz(40); }
+      await sleep(r.move.correct ? 550 : 1100);
+      if (Router.current === 'g' && this.game === 'quiz') this.set(r.game);
+    },
+
+    // Хуудас доторх гар, товч
+    pool(i) { if (this.s && this.s.game === 'anagram' && !this.s.completed && Builder.pick(this.b, i)) this.redrawBuilder(); },
+    slot(k) { if (this.s && this.s.game === 'anagram' && Builder.unpick(this.b, k)) this.redrawBuilder(); },
+    key(ch) {
+      const s = this.s;
+      if (!s || s.completed) return;
+      if (s.game === 'hangman') this.letter(ch);
+      else if (s.game === 'anagram') { if (Builder.pickChar(this.b, ch)) this.redrawBuilder(); }
+      else if (s.game === 'duo') this.duoKey(ch);
+    },
+    special(e) {
+      const s = this.s;
+      if (!s || s.completed) return false;
+      if (s.game === 'quiz' && /^[1-4]$/.test(e.key)) {
+        const b = $(`.quiz-opt[data-choice="${Number(e.key) - 1}"]`);
+        if (b && !b.disabled) this.choose(Number(e.key) - 1, b);
+        return true;
+      }
+      if (s.game === 'truth' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { this.answerTruth(e.key === 'ArrowRight'); return true; }
+      if (s.game === 'search' && e.key === 'Escape') { this.sel = null; this.markSel(); return true; }
+      return false;
+    },
+    backspace() {
+      const s = this.s;
+      if (!s || s.completed) return;
+      if (s.game === 'anagram' && Builder.back(this.b)) this.redrawBuilder();
+      if (s.game === 'duo') this.duoKey('back');
+    },
+    enter() {
+      const s = this.s;
+      if (!s) return;
+      if (s.completed) { this.start(); return; }
+      if (s.game === 'anagram') this.submitAnagram();
+      if (s.game === 'duo') this.submitDuo();
+    },
+  };
+
+  /* ── Blitz арена ──────────────────────────────────────── */
+  const Blitz = {
+    run: null,
+    arena: null,
+    allow: null,
+    b: null,
+    timer: null,
+    deadline: 0,
+    busy: false,
+    el() { return $('#page-g'); },
+    stop() { clearInterval(this.timer); this.timer = null; },
+
+    async open() {
+      this.stop();
+      this.run = null;
+      const el = this.el();
+      el.innerHTML = html`${miniHead('blitz')}${skeleton(4)}`;
+      try {
+        const r = await Api.get('blitz');
+        if (Mini.game !== 'blitz') return;
+        this.arena = r.arena;
+        this.allow = r.allowance;
+        if (r.run) this.begin(r.run);
+        else this.lobby();
+      } catch (e) {
+        el.innerHTML = html`${miniHead('blitz')}${errorBox(e, 'g')}`;
+      }
+    },
+
+    lobby(last = null) {
+      const a = this.arena, c = App.config, al = this.allow;
+      const split = c.blitz_split || [50, 30, 20];
+      const rankedLabel = a.free_left > 0 ? 'Premium — үнэгүй' : money(a.fee);
+      this.el().innerHTML = html`${miniHead('blitz', allowanceChip(al, true))}
+        ${last ? html`<div class="card mini-result ${last.solved > 0 ? 'won' : ''}">
+          <div class="mr-title">${last.ranked ? 'Оноотой тоглолт дууслаа' : 'Дасгал дууслаа'}</div>
+          <div class="blitz-final"><b>${fmt(last.score)}</b><small>оноо</small></div>
+          <p class="center muted">${last.solved} үг тайлсан · ${last.skipped} алгассан${last.ranked && a.me && a.me.rank ? ` · өнөөдөр #${a.me.rank}` : ''}</p>
+        </div>` : ''}
+        <div class="t-hero arena-hero">
+          <div class="t-top"><span class="chip chip-live"><span class="pulse-dot"></span> ${fmtDate(a.date)}</span><span class="muted">${a.participants} оролцогч</span></div>
+          <div class="t-pool-l">Шагналын сан</div>
+          <div class="t-pool">${money(a.pool)}</div>
+          <div class="t-prizes">${a.prizes.map((p, i) => html`<div class="t-prize"><span class="pod-medal sm m${i + 1}">${i + 1}</span><b>${money(p)}</b><small>${split[i]}%</small></div>`)}</div>
+          ${a.me ? html`<div class="t-joined">${icon('zap')}<span>Таны шилдэг: <b>${fmt(a.me.best)}</b>${a.me.rank ? ` · #${a.me.rank}` : ''} · ${a.me.runs} тоглолт</span></div>` : ''}
+          <button class="btn btn-gold btn-block btn-lg" type="button" data-action="blitz-start" data-ranked="1">${icon('zap')} Оноотой тоглох — ${rankedLabel}</button>
+          <button class="btn btn-ghost btn-block" type="button" data-action="blitz-start" data-ranked="0">Дасгал — шагналгүй</button>
+          <p class="muted small center">Хэдэн ч удаа тоглож болно, хамгийн сайн оноо тань тооцогдоно. Хураамжийн ${100 - (c.blitz_rake ?? 25)}% шагналын санд орж, маргааш 00:05-аас хойш шилдэг 3-т автоматаар олгогдоно.</p>
+        </div>
+        <div class="card"><ul class="mi-rules">
+          <li>${icon('clock')}<span><b>${c.blitz_seconds || 60} секунд</b> — аль болох олон холимог үг тайл.</span></li>
+          <li>${icon('star')}<span>Үг бүр <b>үсэг × 10</b> оноо. Ижил үсэгтэй өөр жинхэнэ үг ч тооцогдоно.</span></li>
+          <li>${icon('skip')}<span>Хэцүү үгийг алгасаж болно — оноо хасагдахгүй, цаг л зарцуулна.</span></li>
+        </ul></div>
+        <h2 class="sub-h">Өнөөдрийн шилдэгүүд</h2>
+        ${a.leaders.length ? html`<ol class="list">${a.leaders.map((x) => html`
+          <li class="list-item ${x.user_id === App.user.id ? 'me' : ''}">
+            <span class="rank">${x.rank}</span>
+            ${avatar(x.avatar_url, x.username, 36)}
+            <span class="li-main"><span class="li-title">${x.username}</span><span class="li-sub">${x.runs} тоглолт</span></span>
+            <span class="li-end"><b>${fmt(x.best)}</b><small>оноо</small></span>
+          </li>`)}</ol>` : html`<p class="muted small center">Өнөөдөр хэн ч оноотой тоглоогүй байна — эхний байрыг эзэл!</p>`}
+        ${a.yesterday.length ? html`<h2 class="sub-h">Өчигдрийн ялагчид</h2>
+          <div class="card"><ul class="winners">${a.yesterday.map((w, i) => html`<li><span class="pod-medal sm m${i + 1}">${i + 1}</span>${avatar(w.avatar_url, w.username, 26)}<span class="w-name">${w.username}</span><b>+${money(w.prize_won)}</b></li>`)}</ul></div>` : ''}`;
+    },
+
+    async start(ranked, btn) {
+      if (this.busy) return;
+      const a = this.arena;
+      if (ranked && a.free_left <= 0) {
+        const ok = await Modal.confirm({
+          title: 'Оноотой тоглолт',
+          message: html`Хэтэвчнээс <b>${money(a.fee)}</b> хасагдана. Эхэлмэгц ${App.config.blitz_seconds || 60} секундийн цаг явж эхэлнэ. Бэлэн үү?`,
+          confirmText: 'Эхлэх',
+        });
+        if (!ok) return;
+      }
+      this.busy = true;
+      if (btn) btn.disabled = true;
+      try {
+        const r = await withPay('blitz_start', { ranked });
+        if (!r) return;
+        this.allow = r.allowance;
+        if (App.user && r.balance !== App.user.balance) App.setBalance(r.balance);
+        this.begin(r.run);
+      } catch (e) {
+        moneyError(e);
+      } finally {
+        this.busy = false;
+        if (btn && btn.isConnected) btn.disabled = false;
+      }
+    },
+
+    begin(run) {
+      this.run = run;
+      this.deadline = performance.now() + run.left * 1000;
+      this.b = run.current ? Builder.make(run.current.letters) : null;
+      this.render();
+      this.stop();
+      this.timer = setInterval(() => this.tick(), 100);
+      this.tick();
+    },
+
+    left() { return Math.max(0, this.deadline - performance.now()) / 1000; },
+
+    tick() {
+      const left = this.left();
+      const t = $('#blitz-time');
+      if (t) t.textContent = left.toFixed(left < 10 ? 1 : 0);
+      const bar = $('#blitz-bar');
+      if (bar) {
+        bar.style.width = (left / (this.run.seconds || 60)) * 100 + '%';
+        bar.classList.toggle('low', left < 10);
+      }
+      if (left <= 0) this.finish();
+    },
+
+    render() {
+      const r = this.run;
+      this.el().innerHTML = html`${miniHead('blitz', html`<span class="chip ${r.ranked ? 'chip-gold' : ''}">${r.ranked ? 'Оноотой' : 'Дасгал'}</span>`)}
+        <div class="blitz-hud">
+          <div class="bh-time"><b id="blitz-time">${Math.ceil(r.left)}</b><small>сек</small></div>
+          <div class="bh-score"><b id="blitz-score">${fmt(r.score)}</b><small>оноо · ${r.solved} үг</small></div>
+        </div>
+        <div class="blitz-track"><span id="blitz-bar"></span></div>
+        <div id="bld">${this.b ? Builder.view(this.b) : ''}</div>
+        <div class="mini-actions">
+          <button class="btn btn-ghost btn-sm" type="button" data-action="bld-shuffle">${icon('shuffle')} Холих</button>
+          <button class="btn btn-ghost btn-sm" type="button" data-action="bld-clear">${icon('backspace')} Арилгах</button>
+          <button class="btn btn-ghost btn-sm" type="button" data-action="blitz-skip">${icon('skip')} Алгасах</button>
+        </div>
+        <p class="muted small center">Бүх үсгийг байрлуулмагц автоматаар шалгана.</p>`;
+    },
+
+    redrawBuilder() {
+      const box = $('#bld');
+      if (box && this.b) box.innerHTML = String(Builder.view(this.b));
+      if (this.b && Builder.full(this.b)) this.answer();
+    },
+
+    apply(run) {
+      this.run = run;
+      if (run.finished) { this.finish(); return; }
+      this.b = run.current ? Builder.make(run.current.letters) : null;
+      const box = $('#bld');
+      if (box) box.innerHTML = this.b ? String(Builder.view(this.b)) : '';
+      const sc = $('#blitz-score');
+      if (sc) sc.textContent = fmt(run.score);
+      const sub = $('.bh-score small');
+      if (sub) sub.textContent = `оноо · ${run.solved} үг`;
+    },
+
+    async answer() {
+      if (this.busy || !this.run || !this.b) return;
+      this.busy = true;
+      try {
+        const r = await Api.post('blitz_answer', { id: this.run.id, guess: Builder.word(this.b) });
+        if (!this.run || this.finishing) return;
+        if (r.move.ok) {
+          buzz([15, 30, 15]);
+          const box = $('.bld-slots');
+          if (box) box.classList.add('solved');
+          await sleep(180);
+          this.apply(r.run);
+        } else if (r.move.over || r.run.finished) {
+          this.run = r.run;
+          this.finish();
+        } else {
+          Builder.shake();
+          setTimeout(() => { if (this.b) { Builder.clear(this.b); this.redrawBuilder(); } }, 380);
+        }
+      } catch (e) {
+        Toast.error(e);
+      } finally {
+        this.busy = false;
+      }
+    },
+
+    async skip() {
+      if (this.busy || !this.run) return;
+      this.busy = true;
+      try {
+        const r = await Api.post('blitz_answer', { id: this.run.id, skip: true });
+        if (!this.run || this.finishing) return;
+        if (r.move.word) Toast.show(`Хариулт: ${r.move.word}`, 'info', 1600);
+        this.apply(r.run);
+      } catch (e) {
+        Toast.error(e);
+      } finally {
+        this.busy = false;
+      }
+    },
+
+    async finish() {
+      if (!this.run || this.finishing) return;
+      this.stop();
+      this.finishing = true;
+      const id = this.run.id;
+      try {
+        const r = await Api.post('blitz_finish', { id });
+        this.arena = r.arena;
+        if (Router.current === 'g' && Mini.game === 'blitz') {
+          this.lobby(r.run);
+          if (r.run.solved > 0) setTimeout(() => Confetti.burst(), 200);
+        }
+        if (r.run.ranked) Toast.show(`Blitz: ${fmt(r.run.score)} оноо`, 'success');
+      } catch (e) {
+        Toast.error(e);
+        if (Router.current === 'g' && Mini.game === 'blitz') this.open();
+      } finally {
+        this.run = null;
+        this.b = null;
+        this.finishing = false;
+      }
+    },
+
+    pool(i) { if (this.b && Builder.pick(this.b, i)) this.redrawBuilder(); },
+    slot(k) { if (this.b && Builder.unpick(this.b, k)) this.redrawBuilder(); },
+    key(ch) { if (this.b && Builder.pickChar(this.b, ch)) this.redrawBuilder(); },
+    backspace() { if (this.b && Builder.back(this.b)) this.redrawBuilder(); },
+    enter() { if (this.b && Builder.full(this.b)) this.answer(); },
+  };
+
+  Pages.g = { show(args) { Mini.open(args[0]); } };
+
   /* ── Хэтэвч ────────────────────────────────────────────── */
   const TX = {
     win: ['trophy', 'Өдрийн шагнал'], referral: ['users', 'Урилгын урамшуулал'], withdrawal: ['wallet', 'Мөнгө татсан'],
     withdrawal_refund: ['refresh', 'Таталт буцаав'], tournament_fee: ['target', 'Тэмцээний хураамж'],
     tournament_prize: ['trophy', 'Тэмцээний шагнал'], tournament_refund: ['refresh', 'Тэмцээний буцаалт'],
-    premium: ['crown', 'Premium'], admin_adjust: ['shield', 'Засвар'], topup: ['banknote', 'Хэтэвч цэнэглэлт'], tournament: ['target', 'Тэмцээн'], deposit: ['wallet', 'Гүйлгээ'],
+    premium: ['crown', 'Premium'], admin_adjust: ['shield', 'Засвар'],
+    hint: ['bulb', 'Сэжүүр'], mini_play: ['gamepad', 'Нэмэлт тоглолт'], blitz_fee: ['zap', 'Blitz хураамж'],
+    blitz_prize: ['trophy', 'Blitz шагнал'], blitz_refund: ['refresh', 'Blitz буцаалт'], topup: ['banknote', 'Хэтэвч цэнэглэлт'], tournament: ['target', 'Тэмцээн'], deposit: ['wallet', 'Гүйлгээ'],
   };
   const WD_STATUS = { pending: ['Хүлээгдэж байна', 'warn'], approved: ['Шилжүүлсэн', 'good'], rejected: ['Цуцлагдсан', 'bad'] };
 
@@ -1792,6 +2782,8 @@
             ${item('#/wallet', 'wallet', 'Хэтэвч', money(u.balance))}
             ${item('#/referral', 'users', 'Найз урих', `${r.referrals.verified}/${c.referral_unlock} баталгаажсан`)}
             ${item('#/premium', 'crown', 'Premium', u.is_premium ? 'Идэвхтэй' : `${money(c.premium_price)}/сар`)}
+            ${item('#/games', 'gamepad', 'Тоглоомууд', '7 тоглоом · Blitz арена')}
+            ${item('#/leaders', 'trophy', 'Шилдэгүүд', 'Өдрийн үгийн жагсаалт')}
             ${item('#/archive', 'history', 'Дасгал', r.archive.unlimited ? 'Хязгааргүй' : `Өнөөдөр ${r.archive.left} үлдсэн`)}
             ${u.is_admin ? item('#/admin', 'shield', 'Админ самбар', '', 'admin') : ''}
           </nav>
@@ -1892,6 +2884,9 @@
         c.premium_multiplier > 1 && ['trophy', `${c.premium_multiplier}× шагнал`, `Өдрийн үг таавал ${money(c.reward_amount * c.premium_multiplier)}`],
         ['target', 'Тэмцээнд үнэгүй', `${money(c.tournament_fee)} хураамжгүйгээр оролцоно`],
         ['history', 'Дасгал хязгааргүй', `Энгийн хэрэглэгч өдөрт ${c.practice_daily_free}`],
+        ['gamepad', 'Бүх тоглоом хязгааргүй', `Бүх 6 мини тоглоом, Blitz дасгал — өдөрт ${c.mini_daily_free} биш, хязгааргүй`],
+        c.blitz_premium_free > 0 && ['zap', 'Blitz аренад үнэгүй', `Өдөр бүр ${c.blitz_premium_free} оноотой тоглолт ${money(c.blitz_fee)} хураамжгүй`],
+        ['bulb', 'Сэжүүр хагас үнээр', `${money(c.hint_price_premium)} (энгийн ${money(c.hint_price)})`],
         ['crown', 'Алтан тэмдэг', 'Жагсаалт, профайлд алтан хүрээ'],
       ];
       el.innerHTML = html`
@@ -2019,6 +3014,7 @@
             ${tile('Premium хэрэглэгч', fmt(s.premium_users))}
             ${tile('Premium орлого (30 хоног)', money(s.premium_30d))}
             ${tile('Цэнэглэлт (30 хоног)', money(s.deposits_30d))}
+            ${tile('Тоглоомын орлого (30 хоног)', money(s.games_revenue_30d || 0), `Өнөөдөр ${money(s.games_revenue_today || 0)} · сэжүүр, нэмэлт тоглолт, Blitz`)}
             ${tile('Хоригдсон', fmt(s.banned))}
           </div>
           <h3 class="sub-h">Үгийн сан</h3>
@@ -2477,6 +3473,16 @@
       }
     },
     'tg-test': () => Pages.admin.telegram('test'),
+    hint: () => Game.hint(),
+    'mini-start': (b) => Mini.start(b),
+    'mini-submit': () => Mini.submitAnagram(),
+    'mini-hint': () => Mini.hint(),
+    'mini-rules': (b) => rulesModal(b.dataset.kind),
+    'ws-giveup': () => Mini.giveUp(),
+    'bld-shuffle': () => { const c = Mini.current(); if (c.b) { Builder.shuffle(c.b); c.redrawBuilder(); } },
+    'bld-clear': () => { const c = Mini.current(); if (c.b) { Builder.clear(c.b); c.redrawBuilder(); } },
+    'blitz-start': (b) => Blitz.start(b.dataset.ranked === '1', b),
+    'blitz-skip': () => Blitz.skip(),
     'wd-max': () => {
       const inp = $('#wd-form [name=amount]');
       if (inp && App.user) inp.value = Math.min(App.user.balance, App.config.max_withdrawal);
@@ -2586,6 +3592,57 @@
       }
     });
 
+    // Мини тоглоомын товчнууд (үсэг, хариулт)
+    const pg = $('#page-g');
+    pg.addEventListener('mousedown', (e) => { if (e.target.closest('[data-pool],[data-slot],[data-letter]')) e.preventDefault(); });
+    pg.addEventListener('click', (e) => {
+      const t = e.target;
+      const c = Mini.current();
+      const p = t.closest('[data-pool]');
+      if (p) { c.pool(Number(p.dataset.pool)); return; }
+      const sl = t.closest('[data-slot]');
+      if (sl) { c.slot(Number(sl.dataset.slot)); return; }
+      const l = t.closest('[data-letter]');
+      if (l) { Mini.letter(l.dataset.letter); return; }
+      const ch = t.closest('[data-choice]');
+      if (ch && !ch.disabled) { Mini.choose(Number(ch.dataset.choice), ch); return; }
+      const dk = t.closest('[data-duo-key]');
+      if (dk) { Mini.duoKey(dk.dataset.duoKey); return; }
+      const tf = t.closest('[data-truth]');
+      if (tf && !tf.disabled) { Mini.answerTruth(tf.dataset.truth === '1'); return; }
+      const cell = Mini.cellAt(t);
+      if (cell) {
+        // Чирж дууссаны дараах click-ийг тоохгүй
+        if (performance.now() - Mini.dragEnd < 350) return;
+        Mini.cellTap(cell);
+      }
+    });
+
+    // Үг хайх: чирж зурах (хулгана, хуруу)
+    pg.addEventListener('pointerdown', (e) => {
+      const cell = Mini.cellAt(e.target);
+      if (!cell || !Mini.s || Mini.s.game !== 'search' || Mini.s.completed) return;
+      Mini.drag = cell;
+    });
+    pg.addEventListener('pointermove', (e) => {
+      if (!Mini.drag) return;
+      const cell = Mini.cellAt(document.elementFromPoint(e.clientX, e.clientY));
+      if (cell && !sameCell(cell, Mini.drag)) { e.preventDefault(); Mini.highlight(Mini.drag, cell); }
+    });
+    addEventListener('pointerup', (e) => {
+      if (!Mini.drag) return;
+      const start = Mini.drag;
+      Mini.drag = null;
+      const cell = Mini.cellAt(document.elementFromPoint(e.clientX, e.clientY));
+      if (cell && !sameCell(cell, start) && inLine(start, cell)) {
+        Mini.dragEnd = performance.now();
+        Mini.sel = null;
+        Mini.submitSearch(start, cell);
+      } else {
+        Mini.highlight();
+      }
+    });
+
     // Дэлгэцийн гар
     const kb = $('#keyboard');
     kb.addEventListener('mousedown', (e) => { if (e.target.closest('.key')) e.preventDefault(); });
@@ -2610,6 +3667,21 @@
           if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
           else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
         }
+        return;
+      }
+      if (App.user && Router.current === 'g' && Mini.game && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const tg = e.target && e.target.tagName;
+        if (tg === 'INPUT' || tg === 'TEXTAREA' || tg === 'SELECT') return;
+        const c = Mini.current();
+        if (c === Mini && Mini.special(e)) { e.preventDefault(); return; }
+        if (e.key === 'Enter') {
+          if ((tg === 'BUTTON' || tg === 'A') && !e.target.closest('.bld-pool,.bld-slots')) return;
+          e.preventDefault(); c.enter(); return;
+        }
+        if (e.key === 'Backspace') { e.preventDefault(); c.backspace(); return; }
+        let k = e.key && e.key.length === 1 ? e.key.toUpperCase() : '';
+        if (!MN_SET.has(k)) k = CODE_MAP[e.code] || '';
+        if (k) { e.preventDefault(); c.key(k); }
         return;
       }
       if (!App.user || !Game.active() || e.ctrlKey || e.metaKey || e.altKey) return;

@@ -106,6 +106,25 @@ define('TOURNAMENT_SPLIT', [50, 30, 20]);   // 1, 2, 3-р байрны хувь 
 define('TOURNAMENT_RAKE', 20);              // Хураамжийн хэдэн хувь сайтад үлдэх вэ (%). Үлдсэн нь шагналын санд
 define('REFERRAL_BONUS', 2000);             // Урьсан найз анх удаа таахад өгөх урамшуулал
 define('REFERRAL_UNLOCK', 15);              // Мөнгө татахад шаардлагатай баталгаажсан найз
+/* ── v7: Тоглоомын төв ────────────────────────────────────────────
+ * Мини тоглоомууд (Дүүжлүүр, Үг холих, Тайлбар таах, Blitz дасгал) мөнгөн шагналгүй —
+ * зөвхөн оноо. Өдөрт MINI_DAILY_FREE үнэгүй, дараа нь тоглолт бүр MINI_PLAY_PRICE. Premium хязгааргүй. */
+define('MINI_DAILY_FREE', 8);
+define('MINI_PLAY_PRICE', 200);
+define('HANGMAN_LIVES', 7);
+define('ANAGRAM_TRIES', 3);
+define('QUIZ_QUESTIONS', 10);
+/* Сэжүүр: өдрийн үг / дасгалд нэг үсэг нээнэ. Өдрийн үгэнд ашиглавал мөнгөн шагнал, оноо авахгүй. */
+define('HINT_PRICE', 500);
+define('HINT_PRICE_PREMIUM', 250);
+/* Blitz арена: 60 секундэд аль болох олон холимог үг тайлна. Оноотой тоглолтын хураамжаас
+ * BLITZ_RAKE% сайтад үлдэж, үлдсэн нь маргааш нь шилдэг 3-т хуваарилагдана (үргэлж ашигтай). */
+define('BLITZ_SECONDS', 60);
+define('BLITZ_FEE', 1000);
+define('BLITZ_RAKE', 25);
+define('BLITZ_SPLIT', [50, 30, 20]);
+define('BLITZ_PREMIUM_FREE', 1);            // Premium хэрэглэгч өдөрт хэдэн оноотой тоглолт үнэгүй
+
 define('MIN_WITHDRAWAL', 20000);
 define('MAX_WITHDRAWAL', 2000000);
 

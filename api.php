@@ -20,7 +20,7 @@
  */
 declare(strict_types=1);
 
-const APP_VERSION = '6.3.0';
+const APP_VERSION = '7.1.0';
 
 define('VGTAA', true);
 require __DIR__ . '/config.php';
@@ -669,6 +669,15 @@ function public_config(): array
         'min_withdrawal'     => MIN_WITHDRAWAL,
         'max_withdrawal'     => MAX_WITHDRAWAL,
         'practice_daily_free' => PRACTICE_DAILY_FREE,
+        'mini_daily_free'    => MINI_DAILY_FREE,
+        'mini_play_price'    => MINI_PLAY_PRICE,
+        'hint_price'         => HINT_PRICE,
+        'hint_price_premium' => HINT_PRICE_PREMIUM,
+        'blitz_seconds'      => BLITZ_SECONDS,
+        'blitz_fee'          => BLITZ_FEE,
+        'blitz_split'        => BLITZ_SPLIT,
+        'blitz_premium_free' => BLITZ_PREMIUM_FREE,
+        'blitz_rake'         => BLITZ_RAKE,
         'require_valid_word' => REQUIRE_VALID_WORD,
         'banks'              => BANKS,
     ];
@@ -1140,7 +1149,39 @@ function session_payload(?array $s): ?array
         'is_completed'   => (int)$s['is_completed'] === 1,
         'reward_amount'  => (int)($s['reward_amount'] ?? 0),
         'completed_at'   => $s['completed_at'] ?? null,
+        'hints'          => hint_letters($s),
     ];
+}
+
+/* ── Сэжүүр ──────────────────────────────────────────────── */
+function hint_positions(mixed $json): array
+{
+    $d = is_string($json) && $json !== '' ? json_decode($json, true) : null;
+    if (!is_array($d)) return [];
+    return array_values(array_unique(array_filter(array_map('intval', $d), fn(int $x): bool => $x >= 0)));
+}
+
+/** Нээгдсэн үсгүүд [{pos, letter}] — $s-д word (JOIN) байх ёстой */
+function hint_letters(array $s): array
+{
+    $pos = hint_positions($s['hints'] ?? null);
+    if (!$pos || !isset($s['word'])) return [];
+    $w = mb_str_split((string)$s['word'], 1, 'UTF-8');
+    $out = [];
+    foreach ($pos as $p) {
+        if (isset($w[$p])) $out[] = ['pos' => $p, 'letter' => $w[$p]];
+    }
+    return $out;
+}
+
+function hint_limit(int $len): int
+{
+    return max(1, intdiv($len, 2));
+}
+
+function hint_price(array $u): int
+{
+    return is_premium($u) ? HINT_PRICE_PREMIUM : HINT_PRICE;
 }
 
 /** Админ тухайн өдөр БҮГДЭД нэг үг товлосон бол тэр үг (онцгой өдөр) */
@@ -1190,14 +1231,43 @@ function pick_word(int $uid, int $len = 0): ?int
     $byLen   = " AND CHAR_LENGTH(word) = ?";
     $notSeen = " AND id NOT IN (SELECT word_id FROM game_sessions WHERE user_id = ?)
                  AND id NOT IN (SELECT word_id FROM practice_sessions WHERE user_id = ?)";
+    $seenP   = [$uid, $uid];
+    if (table_ready('mini_sessions')) {
+        // Мини тоглоомд гарсан үг өдрийн үг болж ирэхгүй
+        $notSeen .= " AND id NOT IN (SELECT word_id FROM mini_sessions WHERE user_id = ?)";
+        $seenP[]  = $uid;
+    }
     $tries = $len > 0
-        ? [[$byLen . $notSeen, [$len, $uid, $uid]], [$notSeen, [$uid, $uid]], [$byLen, [$len]], ['', []]]
-        : [[$notSeen, [$uid, $uid]], ['', []]];
+        ? [[$byLen . $notSeen, array_merge([$len], $seenP)], [$notSeen, $seenP], [$byLen, [$len]], ['', []]]
+        : [[$notSeen, $seenP], ['', []]];
     foreach ($tries as [$where, $p]) {
         $id = val($base . $where . " ORDER BY RAND() LIMIT 1", $p);
         if ($id) return (int)$id;
     }
     return null;
+}
+
+/** Хүснэгт үүссэн эсэх (setup.php ажиллаагүй үед хуучин функцууд эвдрэхгүй) */
+function table_ready(string $t): bool
+{
+    static $cache = [];
+    if (!array_key_exists($t, $cache)) {
+        $cache[$t] = (bool)val("SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1", [$t]);
+    }
+    return $cache[$t];
+}
+
+function column_ready(string $t, string $c): bool
+{
+    static $cache = [];
+    $k = "$t.$c";
+    if (!array_key_exists($k, $cache)) {
+        $cache[$k] = (bool)val(
+            "SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1",
+            [$t, $c]
+        );
+    }
+    return $cache[$k];
 }
 
 /** Хэрэглэгчийн тухайн өдрийн тоглоом үгтэйгээ. $create бол санамсаргүй үг оноож үүсгэнэ. */
@@ -1287,7 +1357,7 @@ function user_stats(int $uid): array
     $played = count($list);
     $earned = num(
         "SELECT COALESCE(SUM(amount), 0) FROM transactions
-         WHERE user_id = ? AND amount > 0 AND type IN ('win', 'referral', 'tournament_prize')",
+         WHERE user_id = ? AND amount > 0 AND type IN ('win', 'referral', 'tournament_prize', 'blitz_prize')",
         [$uid]
     );
     return [
@@ -1660,17 +1730,18 @@ function a_guess(): never
         $reward  = 0;
         $capped  = false;
         $balance = (int)$me['balance'];
-        if ($won) {
+        $hinted = $s && hint_positions($s['hints'] ?? null);
+        if ($won && !$hinted) {
             [$reward, $capped] = daily_reward($me, $n, $today);
             if ($reward > 0) {
                 $balance = credit((int)$me['id'], $reward, 'win', 'Өдрийн үг таасан: ' . $guess, $sid, 'won_balance');
                 q("UPDATE game_sessions SET reward_amount = ?, reward_paid = 1 WHERE id = ?", [$reward, $sid]);
             }
-            referral_first_win($me);
         }
+        if ($won) referral_first_win($me);
         if ($done) tournament_record_result((int)$me['id'], $today, $won, $n);
 
-        return ['n' => $n, 'done' => $done, 'reward' => $reward, 'capped' => $capped, 'balance' => $balance];
+        return ['n' => $n, 'done' => $done, 'reward' => $reward, 'capped' => $capped, 'balance' => $balance, 'hinted' => (bool)$hinted];
     });
 
     ok([
@@ -1680,6 +1751,7 @@ function a_guess(): never
         'attempts_count' => $r['n'],
         'reward_amount'  => $r['reward'],
         'reward_capped'  => $r['capped'],
+        'hinted'         => $r['hinted'],
         'balance'        => $r['balance'],
         'answer'         => $r['done'] ? $answer : null,
         'definition'     => $r['done'] ? (string)$dw['definition'] : null,
@@ -1862,11 +1934,13 @@ function a_leaderboard(): never
     if (!in_array($period, ['today', 'week', 'month', 'all'], true)) $period = 'week';
 
     $pts = MAX_ATTEMPTS + 1;
+    // Сэжүүр авсан ялалт оноо өгөхгүй (setup.php-ээс өмнө hints багана байхгүй байж болно)
+    $noHint = column_ready('game_sessions', 'hints') ? " AND COALESCE(gs.hints, '') IN ('', '[]')" : '';
     $list = rows(
         "SELECT u.id, u.username, u.avatar_url, u.is_premium, u.premium_expires_at,
                 SUM(gs.is_won) AS wins,
                 COUNT(*) AS played,
-                SUM(CASE WHEN gs.is_won = 1 THEN $pts - gs.attempts_count ELSE 0 END) AS points,
+                SUM(CASE WHEN gs.is_won = 1$noHint THEN $pts - gs.attempts_count ELSE 0 END) AS points,
                 MIN(CASE WHEN gs.is_won = 1 THEN gs.attempts_count END) AS best,
                 MIN(CASE WHEN gs.is_won = 1 THEN gs.completed_at END) AS first_win
          FROM game_sessions gs
@@ -2229,6 +2303,10 @@ function a_tournament_join(): never
         if (num("SELECT COUNT(*) FROM game_sessions WHERE user_id = ? AND game_date = ? AND attempts_count > 0", [$me['id'], $today]) > 0) {
             fail('Өнөөдрийн үгийг таах эхэлсэн тул нэгдэх боломжгүй. Тэмцээнд тоглож эхлэхээсээ өмнө нэгддэг.', 409);
         }
+        $gs = row("SELECT * FROM game_sessions WHERE user_id = ? AND game_date = ? LIMIT 1", [$me['id'], $today]);
+        if ($gs && hint_positions($gs['hints'] ?? null)) {
+            fail('Өнөөдрийн үгэнд сэжүүр авсан тул тэмцээнд нэгдэх боломжгүй.', 409);
+        }
         $fee = is_premium($me) ? 0 : (int)$t['entry_fee'];
         $balance = (int)$me['balance'];
         if ($fee > 0) {
@@ -2245,6 +2323,947 @@ function a_tournament_join(): never
     ok([
         'message' => $r['fee'] > 0 ? 'Тэмцээнд бүртгүүллээ! Амжилт хүсье 🎯' : 'Premium эрхээр үнэгүй бүртгүүллээ! 🎯',
         'balance' => $r['balance'],
+    ]);
+}
+
+/* ============================================================
+   HANDLERS — сэжүүр (өдрийн үг, дасгал)
+   ============================================================ */
+function a_hint(): never
+{
+    $u    = require_user();
+    $mode = in_str('mode', 16);
+    if (!in_array($mode, ['daily', 'practice'], true)) fail('Буруу горим.', 422);
+    $today = today();
+
+    $r = tx(function () use ($u, $mode, $today): array {
+        $me = row("SELECT * FROM users WHERE id = ? FOR UPDATE", [$u['id']]);
+        if ($mode === 'daily') {
+            $t = row("SELECT id FROM tournaments WHERE tournament_date = ? LIMIT 1", [$today]);
+            if ($t && val("SELECT 1 FROM tournament_entries WHERE tournament_id = ? AND user_id = ? LIMIT 1", [$t['id'], $me['id']])) {
+                fail('Тэмцээнд оролцож буй өдөр өдрийн үгэнд сэжүүр ашиглах боломжгүй.', 409);
+            }
+            $g = user_day_game((int)$me['id'], $today);
+            if (!$g) fail('Үгийн сан хоосон байна.', 404);
+            $table = 'game_sessions';
+        } else {
+            $g = row(
+                "SELECT ps.id, w.word FROM practice_sessions ps JOIN words w ON w.id = ps.word_id
+                 WHERE ps.id = ? AND ps.user_id = ? LIMIT 1",
+                [in_int('id'), $me['id']]
+            );
+            if (!$g) fail('Дасгал олдсонгүй.', 404);
+            $table = 'practice_sessions';
+        }
+        $s = row("SELECT * FROM $table WHERE id = ? LIMIT 1 FOR UPDATE", [$g['id']]);
+        if ((int)$s['is_completed'] === 1) fail('Тоглоом дууссан байна.', 409);
+
+        $word  = mb_str_split((string)$g['word'], 1, 'UTF-8');
+        $hints = hint_positions($s['hints'] ?? null);
+        $limit = hint_limit(count($word));
+        if (count($hints) >= $limit) fail("Нэг үгэнд хамгийн ихдээ {$limit} сэжүүр авна.", 409);
+
+        $known = array_fill_keys($hints, true);
+        foreach (decode_attempts($s['attempts']) as $a) {
+            foreach ($a['result'] as $i => $st) if ($st === 'correct') $known[$i] = true;
+        }
+        $free = array_values(array_diff(array_keys($word), array_keys($known)));
+        if (!$free) fail('Бүх байрлал аль хэдийн илэрсэн байна.', 409);
+        $pos = $free[random_int(0, count($free) - 1)];
+
+        $price   = hint_price($me);
+        $balance = credit((int)$me['id'], -$price, 'hint', 'Сэжүүр: ' . ($mode === 'daily' ? 'өдрийн үг' : 'дасгал'), (int)$s['id']);
+        $hints[] = $pos;
+        q("UPDATE $table SET hints = ? WHERE id = ?", [(string)json_encode($hints), $s['id']]);
+        return ['pos' => $pos, 'letter' => $word[$pos], 'balance' => $balance, 'left' => $limit - count($hints), 'price' => $price];
+    });
+
+    ok($r + ['message' => ($r['pos'] + 1) . '-р үсэг: ' . $r['letter']]);
+}
+
+/* ============================================================
+   ТОГЛООМЫН ТӨВ — мини тоглоомууд (оноотой, мөнгөн шагналгүй)
+   Тоглоом бүр: *_start() → анхны төлөв, *_move() → нэг нүүдэл, *_view() → хэрэглэгчид харагдах хэсэг.
+   Хариултыг тоглоом дуусахаас өмнө клиент рүү хэзээ ч илгээхгүй.
+   ============================================================ */
+const MINI_GAMES  = ['hangman', 'anagram', 'quiz', 'duo', 'search', 'truth'];
+const MINI_LABELS = [
+    'hangman' => 'Дүүжлүүр', 'anagram' => 'Үг холих', 'quiz' => 'Тайлбар таах', 'duo' => 'Хос үг',
+    'search'  => 'Үг хайх', 'truth' => 'Үнэн үү, худал уу', 'blitz' => 'Blitz',
+];
+const DUO_ATTEMPTS  = 7;
+const SEARCH_SIZE   = 8;
+const SEARCH_WORDS  = 6;
+const TRUTH_ROUNDS  = 12;
+/* Үг хайх торыг дүүргэх үсгүүд — монгол хэлний давтамжаар жигнэсэн */
+const FILL_LETTERS  = 'АААААОООЭЭЭИИИНННННРРРЛЛЛГГДДТТССХХББММУУҮӨЙЧЦЗЖШЯЕ';
+
+function day_bounds(string $date): array
+{
+    return [$date . ' 00:00:00', day_shift($date, 1) . ' 00:00:00'];
+}
+
+/** Өнөөдрийн үнэгүй тоглолтын эрх (мини + Blitz дасгал нийлээд) */
+function mini_allowance(array $u): array
+{
+    [$from, $to] = day_bounds(today());
+    $used = num("SELECT COUNT(*) FROM mini_sessions WHERE user_id = ? AND created_at >= ? AND created_at < ?", [$u['id'], $from, $to])
+          + num("SELECT COUNT(*) FROM blitz_runs WHERE user_id = ? AND ranked = 0 AND started_at >= ? AND started_at < ?", [$u['id'], $from, $to]);
+    if (is_premium($u)) return ['unlimited' => true, 'used' => $used, 'limit' => null, 'left' => null, 'price' => 0];
+    return ['unlimited' => false, 'used' => $used, 'limit' => MINI_DAILY_FREE, 'left' => max(0, MINI_DAILY_FREE - $used), 'price' => MINI_PLAY_PRICE];
+}
+
+/** tx() дотор. Үнэгүй эрх дууссан бол төлбөр авна; хэрэглэгч зөвшөөрөөгүй (pay) бол 402. */
+function mini_charge(array $me, string $game): int
+{
+    $a = mini_allowance($me);
+    if ($a['unlimited'] || $a['left'] > 0) return 0;
+    if (!in_bool('pay')) {
+        fail('Өнөөдрийн үнэгүй ' . MINI_DAILY_FREE . ' тоглолт дууслаа. Нэг тоглолт ' . number_format(MINI_PLAY_PRICE) . '₮.', 402,
+            ['code' => 'mini_pay_required', 'price' => MINI_PLAY_PRICE]);
+    }
+    credit((int)$me['id'], -MINI_PLAY_PRICE, 'mini_play', 'Тоглолт: ' . (MINI_LABELS[$game] ?? $game));
+    return MINI_PLAY_PRICE;
+}
+
+function letters(string $w): array
+{
+    return mb_str_split($w, 1, 'UTF-8');
+}
+
+function shuffle_letters(string $word): array
+{
+    $l = letters($word);
+    if (count(array_unique($l)) < 2) return $l;
+    for ($i = 0; $i < 8; $i++) {
+        $s = $l;
+        for ($j = count($s) - 1; $j > 0; $j--) {
+            $k = random_int(0, $j);
+            [$s[$j], $s[$k]] = [$s[$k], $s[$j]];
+        }
+        if ($s !== $l) return $s;
+    }
+    return array_reverse($l);
+}
+
+function same_letters(string $a, string $b): bool
+{
+    $x = letters($a);
+    $y = letters($b);
+    sort($x);
+    sort($y);
+    return $x === $y;
+}
+
+/** Холимог үгийн хариулт: яг тэр үг, эсвэл ижил үсгүүдтэй толь бичгийн өөр үг */
+function anagram_ok(string $guess, string $answer): bool
+{
+    if ($guess === $answer) return true;
+    if (!same_letters($guess, $answer)) return false;
+    return (bool)val("SELECT 1 FROM words WHERE word = ? AND is_active = 1 LIMIT 1", [$guess]);
+}
+
+/** Тайлбар дотор тухайн үг өөрөө бичигдсэн бол нууна (хариулт ил гарахаас сэргийлнэ) */
+function mask_word(string $clue, string $word): string
+{
+    if ($clue === '' || $word === '') return $clue;
+    $stem = mb_substr($word, 0, max(3, mb_strlen($word, 'UTF-8') - 2), 'UTF-8');
+    return (string)preg_replace('/' . preg_quote($stem, '/') . '\p{L}*/iu', '•••', $clue);
+}
+
+function mini_pick_word(int $uid, int $min, int $max, bool $needDef = false, array $exclude = []): ?array
+{
+    $def  = $needDef ? " AND definition <> ''" : '';
+    $excl = $exclude ? ' AND id NOT IN (' . implode(',', array_map('intval', $exclude)) . ')' : '';
+    $base = "SELECT id, word, definition FROM words WHERE is_active = 1 AND is_answer = 1 AND CHAR_LENGTH(word) BETWEEN ? AND ?$def$excl";
+    $w = row($base . " AND id NOT IN (SELECT word_id FROM mini_sessions WHERE user_id = ?)
+                        AND id NOT IN (SELECT word_id FROM game_sessions WHERE user_id = ?) ORDER BY RAND() LIMIT 1", [$min, $max, $uid, $uid]);
+    return $w ?: row($base . " ORDER BY RAND() LIMIT 1", [$min, $max]);
+}
+
+function defined_words(): int
+{
+    return num("SELECT COUNT(*) FROM words WHERE is_active = 1 AND definition <> ''");
+}
+
+function quiz_ready(): bool
+{
+    return defined_words() >= 4;
+}
+
+function mini_state(array $m): array
+{
+    $d = is_string($m['state'] ?? null) ? json_decode((string)$m['state'], true) : null;
+    return is_array($d) ? $d : [];
+}
+
+function word_by_id(int $id): array
+{
+    return row("SELECT id, word, definition FROM words WHERE id = ? LIMIT 1", [$id]) ?? ['id' => $id, 'word' => '?', 'definition' => ''];
+}
+
+/* ── Дүүжлүүр ───────────────────────────────────────────── */
+function hangman_start(int $uid): array
+{
+    $w = mini_pick_word($uid, 4, 9) ?? fail('Үгийн сан хоосон байна.', 404);
+    return [(int)$w['id'], ['g' => [], 'w' => 0]];
+}
+
+function hangman_view(array $m, array $st, bool $done): array
+{
+    $word    = (string)$m['word'];
+    $guessed = $st['g'] ?? [];
+    $L       = letters($word);
+    return [
+        'pattern'   => array_map(fn(string $c): string => ($done || in_array($c, $guessed, true)) ? $c : '', $L),
+        'guessed'   => array_map(fn(string $c): array => ['l' => $c, 'hit' => in_array($c, $L, true)], $guessed),
+        'lives'     => HANGMAN_LIVES - (int)($st['w'] ?? 0),
+        'max_lives' => HANGMAN_LIVES,
+        'clue'      => mask_word((string)$m['definition'], $word),
+    ];
+}
+
+function hangman_move(array $m, array &$st): array
+{
+    $ch = normalize_word(in_str('letter', 4));
+    if (mb_strlen($ch, 'UTF-8') !== 1 || !is_mn_word($ch)) fail('Нэг монгол үсэг сонгоно уу.', 422);
+    $st['g'] = $st['g'] ?? [];
+    if (in_array($ch, $st['g'], true)) fail('Энэ үсгийг сонгосон байна.', 422);
+    $st['g'][] = $ch;
+    $L   = letters((string)$m['word']);
+    $hit = in_array($ch, $L, true);
+    if (!$hit) $st['w'] = (int)($st['w'] ?? 0) + 1;
+    $won  = !array_diff($L, $st['g']);
+    $done = $won || (int)($st['w'] ?? 0) >= HANGMAN_LIVES;
+    $score = $won ? 10 + count($L) * 2 + 5 * (HANGMAN_LIVES - (int)($st['w'] ?? 0)) : 0;
+    return [$done, $won, $score, ['hit' => $hit]];
+}
+
+/* ── Үг холих ───────────────────────────────────────────── */
+function anagram_start(int $uid): array
+{
+    $w = mini_pick_word($uid, 4, 8) ?? fail('Үгийн сан хоосон байна.', 404);
+    return [(int)$w['id'], ['s' => shuffle_letters((string)$w['word']), 't' => 0, 'h' => 0, 'x' => []]];
+}
+
+function anagram_view(array $m, array $st, bool $done): array
+{
+    return [
+        'letters'   => $st['s'] ?? [],
+        'tries'     => ANAGRAM_TRIES - (int)($st['t'] ?? 0),
+        'max_tries' => ANAGRAM_TRIES,
+        'prefix'    => mb_substr((string)$m['word'], 0, (int)($st['h'] ?? 0), 'UTF-8'),
+        'wrong'     => $st['x'] ?? [],
+    ];
+}
+
+function anagram_move(array $m, array &$st): array
+{
+    $word = (string)$m['word'];
+    $len  = wlen($word);
+    if (in_bool('hint')) {
+        if ((int)($st['h'] ?? 0) >= $len - 1) fail('Сэжүүр дууссан.', 409);
+        $st['h'] = (int)($st['h'] ?? 0) + 1;
+        return [false, false, 0, ['hint' => true]];
+    }
+    $guess = normalize_word(in_str('guess', 64));
+    if (!is_mn_word($guess) || wlen($guess) !== $len) fail("{$len} үсэгтэй үг бичнэ үү.", 422);
+    $won = anagram_ok($guess, $word);
+    if (!$won) {
+        $st['t'] = (int)($st['t'] ?? 0) + 1;
+        $st['x'] = array_slice(array_merge($st['x'] ?? [], [$guess]), -ANAGRAM_TRIES);
+    }
+    $done  = $won || (int)($st['t'] ?? 0) >= ANAGRAM_TRIES;
+    $score = $won ? max(5, $len * 10 - (int)($st['h'] ?? 0) * 10 - (int)($st['t'] ?? 0) * 5) : 0;
+    return [$done, $won, $score, ['ok' => $won]];
+}
+
+/* ── Тайлбар таах ───────────────────────────────────────── */
+function quiz_start(int $uid): array
+{
+    if (!quiz_ready()) fail('Тайлбартай үг хангалтгүй байна. Админ үгэнд тайлбар нэмэх хэрэгтэй.', 409, ['code' => 'quiz_unavailable']);
+    $picked = rows("SELECT id, CHAR_LENGTH(word) AS len FROM words WHERE is_active = 1 AND definition <> '' ORDER BY RAND() LIMIT " . (int)QUIZ_QUESTIONS);
+    $qs = [];
+    foreach ($picked as $p) {
+        $decoys = array_map('intval', array_column(rows(
+            "SELECT id FROM words WHERE is_active = 1 AND id <> ? AND CHAR_LENGTH(word) BETWEEN ? AND ? ORDER BY RAND() LIMIT 3",
+            [$p['id'], (int)$p['len'] - 1, (int)$p['len'] + 1]
+        ), 'id'));
+        if (count($decoys) < 3) {
+            $decoys = array_map('intval', array_column(rows("SELECT id FROM words WHERE is_active = 1 AND id <> ? ORDER BY RAND() LIMIT 3", [$p['id']]), 'id'));
+        }
+        if (count($decoys) < 3) continue;
+        $opts = array_merge([(int)$p['id']], $decoys);
+        shuffle($opts);
+        $qs[] = [(int)$p['id'], $opts];
+    }
+    if (!$qs) fail('Асуулт бэлдэж чадсангүй.', 409, ['code' => 'quiz_unavailable']);
+    return [0, ['q' => $qs, 'i' => 0, 'c' => 0, 'a' => []]];
+}
+
+function quiz_view(array $m, array $st, bool $done): array
+{
+    $qs  = $st['q'] ?? [];
+    $i   = (int)($st['i'] ?? 0);
+    $out = ['total' => count($qs), 'index' => $i, 'correct' => (int)($st['c'] ?? 0), 'question' => null, 'history' => $st['a'] ?? []];
+    if (!$done && isset($qs[$i])) {
+        $ids  = array_map('intval', $qs[$i][1]);
+        $byId = [];
+        foreach (rows("SELECT id, word FROM words WHERE id IN (" . implode(',', $ids) . ")") as $w) $byId[(int)$w['id']] = (string)$w['word'];
+        $ans = word_by_id((int)$qs[$i][0]);
+        $out['question'] = [
+            'clue'    => mask_word((string)$ans['definition'], (string)$ans['word']),
+            'options' => array_map(fn(int $id): string => $byId[$id] ?? '?', $ids),
+        ];
+    }
+    return $out;
+}
+
+function quiz_move(array $m, array &$st): array
+{
+    $qs = $st['q'] ?? [];
+    $i  = (int)($st['i'] ?? 0);
+    if (!isset($qs[$i])) fail('Асуулт дууссан.', 409);
+    $choice = in_int('choice', -1);
+    if ($choice < 0 || $choice > 3) fail('Хариултаа сонгоно уу.', 422);
+    $opts    = array_map('intval', $qs[$i][1]);
+    $right   = (int)array_search((int)$qs[$i][0], $opts, true);
+    $correct = $choice === $right;
+    $word    = (string)word_by_id((int)$qs[$i][0])['word'];
+    $st['a'][] = ['w' => $word, 'ok' => $correct];
+    if ($correct) $st['c'] = (int)($st['c'] ?? 0) + 1;
+    $st['i'] = $i + 1;
+    $done = $st['i'] >= count($qs);
+    $won  = $done && (int)$st['c'] * 10 >= count($qs) * 7;   // 70%+
+    return [$done, $won, $done ? (int)$st['c'] * 10 : 0, ['correct' => $correct, 'right' => $right, 'word' => $word]];
+}
+
+/* ── Хос үг: нэг таалтаар хоёр үгийг зэрэг таана ────────── */
+function duo_start(int $uid): array
+{
+    foreach ([5, 4, 6] as $len) {
+        $a = mini_pick_word($uid, $len, $len);
+        if (!$a) continue;
+        $b = mini_pick_word($uid, $len, $len, false, [(int)$a['id']]);
+        if ($b && $b['word'] !== $a['word']) return [(int)$a['id'], ['w2' => (int)$b['id'], 'a' => [], 's' => [false, false]]];
+    }
+    fail('Хос үг бэлдэх хангалттай үг алга.', 404);
+}
+
+function duo_view(array $m, array $st, bool $done): array
+{
+    $w2 = $done ? word_by_id((int)($st['w2'] ?? 0)) : null;
+    return [
+        'length'       => wlen((string)$m['word']),
+        'max_attempts' => DUO_ATTEMPTS,
+        'rows'         => $st['a'] ?? [],
+        'solved'       => $st['s'] ?? [false, false],
+        'answer2'      => $w2 ? (string)$w2['word'] : null,
+        'definition2'  => $w2 ? (string)$w2['definition'] : null,
+    ];
+}
+
+function duo_move(array $m, array &$st): array
+{
+    $w1 = (string)$m['word'];
+    $w2 = (string)word_by_id((int)($st['w2'] ?? 0))['word'];
+    $guess = normalize_word(in_str('guess', 64));
+    validate_guess($guess, wlen($w1));
+    $st['a'] = $st['a'] ?? [];
+    $st['s'] = $st['s'] ?? [false, false];
+    foreach ($st['a'] as $r) if ($r['g'] === $guess) fail('Энэ үгийг аль хэдийн оруулсан байна.', 422);
+    // Аль хэдийн тааагдсан талбарт үр дүн бичихгүй
+    $r1 = $st['s'][0] ? null : score_guess($guess, $w1);
+    $r2 = $st['s'][1] ? null : score_guess($guess, $w2);
+    if ($guess === $w1) $st['s'][0] = true;
+    if ($guess === $w2) $st['s'][1] = true;
+    $st['a'][] = ['g' => $guess, 'r' => [$r1, $r2]];
+    $n    = count($st['a']);
+    $won  = $st['s'][0] && $st['s'][1];
+    $done = $won || $n >= DUO_ATTEMPTS;
+    $score = $won ? 20 + 10 * (DUO_ATTEMPTS - $n) : (($st['s'][0] || $st['s'][1]) ? 10 : 0);
+    return [$done, $won, $score, ['r' => [$r1, $r2]]];
+}
+
+/* ── Үг хайх: үсгийн торноос нуугдсан үгсийг ол ─────────── */
+const SEARCH_DIRS = [[0, 1], [1, 0], [1, 1], [-1, 1]];
+
+function search_build(array $words): ?array
+{
+    $n    = SEARCH_SIZE;
+    $grid = array_fill(0, $n * $n, '');
+    $placed = [];
+    foreach ($words as $w) {
+        $L   = letters((string)$w['word']);
+        $len = count($L);
+        if ($len > $n) continue;
+        for ($try = 0; $try < 80; $try++) {
+            [$dr, $dc] = SEARCH_DIRS[random_int(0, count(SEARCH_DIRS) - 1)];
+            $r0 = $dr === -1 ? random_int($len - 1, $n - 1) : random_int(0, $dr === 1 ? $n - $len : $n - 1);
+            $c0 = random_int(0, $dc === 1 ? $n - $len : $n - 1);
+            $ok = true;
+            for ($k = 0; $k < $len; $k++) {
+                $cell = $grid[($r0 + $dr * $k) * $n + $c0 + $dc * $k];
+                if ($cell !== '' && $cell !== $L[$k]) { $ok = false; break; }
+            }
+            if (!$ok) continue;
+            for ($k = 0; $k < $len; $k++) $grid[($r0 + $dr * $k) * $n + $c0 + $dc * $k] = $L[$k];
+            $placed[] = [(int)$w['id'], $r0, $c0, $dr, $dc, $len];
+            break;
+        }
+        if (count($placed) >= SEARCH_WORDS) break;
+    }
+    if (count($placed) < 4) return null;
+    $fill = letters(FILL_LETTERS);
+    foreach ($grid as $i => $c) if ($c === '') $grid[$i] = $fill[random_int(0, count($fill) - 1)];
+    return ['g' => implode('', $grid), 'w' => $placed, 'f' => [], 't' => time()];
+}
+
+function search_start(int $uid): array
+{
+    for ($attempt = 0; $attempt < 4; $attempt++) {
+        $words = rows("SELECT id, word FROM words WHERE is_active = 1 AND is_answer = 1 AND CHAR_LENGTH(word) BETWEEN 3 AND 7 ORDER BY RAND() LIMIT 14");
+        // Урт үгийг эхэлж байрлуулбал илүү амжилттай
+        usort($words, fn(array $a, array $b): int => wlen((string)$b['word']) <=> wlen((string)$a['word']));
+        $st = search_build($words);
+        if ($st) return [0, $st];
+    }
+    fail('Үг хайх тор бэлдэж чадсангүй. Үгийн сан хангалтгүй байна.', 409);
+}
+
+function search_cells(array $p): array
+{
+    [, $r0, $c0, $dr, $dc, $len] = $p;
+    $out = [];
+    for ($k = 0; $k < $len; $k++) $out[] = [$r0 + $dr * $k, $c0 + $dc * $k];
+    return $out;
+}
+
+function search_view(array $m, array $st, bool $done): array
+{
+    $found = $st['f'] ?? [];
+    $ids   = array_map(fn(array $p): int => (int)$p[0], $st['w'] ?? []);
+    $byId  = [];
+    if ($ids) foreach (rows("SELECT id, word FROM words WHERE id IN (" . implode(',', $ids) . ")") as $w) $byId[(int)$w['id']] = (string)$w['word'];
+    $words = [];
+    foreach ($st['w'] ?? [] as $i => $p) {
+        $isFound = in_array($i, $found, true);
+        $words[] = ['w' => $byId[(int)$p[0]] ?? '?', 'found' => $isFound, 'cells' => ($isFound || $done) ? search_cells($p) : null];
+    }
+    return ['size' => SEARCH_SIZE, 'grid' => array_map(fn(string $row): array => letters($row), str_split_mb((string)($st['g'] ?? ''), SEARCH_SIZE)), 'words' => $words];
+}
+
+function str_split_mb(string $s, int $n): array
+{
+    $L = letters($s);
+    return array_map(fn(array $c): string => implode('', $c), array_chunk($L, $n));
+}
+
+function search_move(array $m, array &$st): array
+{
+    $total = count($st['w'] ?? []);
+    if (in_bool('giveup')) return [true, false, count($st['f'] ?? []) * 10, ['giveup' => true]];
+
+    $a = input()['a'] ?? null;
+    $b = input()['b'] ?? null;
+    $ok = fn($p): bool => is_array($p) && count($p) === 2 && is_int($p[0]) && is_int($p[1]) && $p[0] >= 0 && $p[1] >= 0 && $p[0] < SEARCH_SIZE && $p[1] < SEARCH_SIZE;
+    if (!$ok($a) || !$ok($b)) fail('Эхний болон сүүлийн үсгээ сонгоно уу.', 422);
+
+    $hit = null;
+    foreach ($st['w'] as $i => $p) {
+        if (in_array($i, $st['f'] ?? [], true)) continue;
+        $cells = search_cells($p);
+        $first = $cells[0];
+        $last  = $cells[count($cells) - 1];
+        if (($first === $a && $last === $b) || ($first === $b && $last === $a)) { $hit = $i; break; }
+    }
+    if ($hit !== null) $st['f'][] = $hit;
+    $n    = count($st['f'] ?? []);
+    $won  = $n >= $total;
+    $secs = time() - (int)($st['t'] ?? time());
+    $score = $n * 10 + ($won ? max(10, 60 - intdiv($secs, 5)) : 0);
+    return [$won, $won, $score, ['found' => $hit !== null, 'index' => $hit]];
+}
+
+/* ── Үнэн үү, худал уу ───────────────────────────────────── */
+function truth_start(int $uid): array
+{
+    if (!quiz_ready()) fail('Тайлбартай үг хангалтгүй байна. Админ үгэнд тайлбар нэмэх хэрэгтэй.', 409, ['code' => 'quiz_unavailable']);
+    $ids = array_map('intval', array_column(rows(
+        "SELECT id FROM words WHERE is_active = 1 AND definition <> '' ORDER BY RAND() LIMIT " . (int)(TRUTH_ROUNDS * 2)
+    ), 'id'));
+    $q = [];
+    foreach (array_slice($ids, 0, TRUTH_ROUNDS) as $k => $id) {
+        $true = random_int(0, 1) === 1;
+        $other = $id;
+        if (!$true) {
+            $pool = array_values(array_diff($ids, [$id]));
+            $other = $pool[random_int(0, count($pool) - 1)];
+        }
+        $q[] = [$id, $other, $true ? 1 : 0];
+    }
+    return [0, ['q' => $q, 'i' => 0, 'c' => 0, 'k' => 0, 'p' => 0, 'a' => []]];
+}
+
+function truth_view(array $m, array $st, bool $done): array
+{
+    $q   = $st['q'] ?? [];
+    $i   = (int)($st['i'] ?? 0);
+    $out = ['total' => count($q), 'index' => $i, 'correct' => (int)($st['c'] ?? 0), 'streak' => (int)($st['k'] ?? 0),
+            'points' => (int)($st['p'] ?? 0), 'card' => null, 'history' => $st['a'] ?? []];
+    if (!$done && isset($q[$i])) {
+        $w = word_by_id((int)$q[$i][0]);
+        $d = word_by_id((int)$q[$i][1]);
+        $out['card'] = ['word' => (string)$w['word'], 'clue' => mask_word((string)$d['definition'], (string)$d['word'])];
+    }
+    return $out;
+}
+
+function truth_move(array $m, array &$st): array
+{
+    $q = $st['q'] ?? [];
+    $i = (int)($st['i'] ?? 0);
+    if (!isset($q[$i])) fail('Асуулт дууссан.', 409);
+    $v = input()['answer'] ?? null;
+    if (!is_bool($v)) fail('Үнэн эсвэл худал гэж хариулна уу.', 422);
+    $truth   = (int)$q[$i][2] === 1;
+    $correct = $v === $truth;
+    $st['k'] = $correct ? (int)($st['k'] ?? 0) + 1 : 0;
+    $gain    = $correct ? 10 + ($st['k'] >= 3 ? 5 : 0) : 0;
+    $st['p'] = (int)($st['p'] ?? 0) + $gain;
+    if ($correct) $st['c'] = (int)($st['c'] ?? 0) + 1;
+    $real = $truth ? null : (string)word_by_id((int)$q[$i][1])['word'];
+    $st['a'][] = ['w' => (string)word_by_id((int)$q[$i][0])['word'], 'ok' => $correct];
+    $st['i'] = $i + 1;
+    $done = $st['i'] >= count($q);
+    $won  = $done && (int)$st['c'] * 4 >= count($q) * 3;    // 75%+
+    return [$done, $won, $done ? (int)$st['p'] : 0, ['correct' => $correct, 'truth' => $truth, 'real' => $real, 'gain' => $gain, 'streak' => $st['k']]];
+}
+
+/* ── Нийтлэг ─────────────────────────────────────────────── */
+function mini_payload(array $m): array
+{
+    $st   = mini_state($m);
+    $done = (int)$m['is_completed'] === 1;
+    $word = (string)($m['word'] ?? '');
+    $game = (string)$m['game'];
+    $out  = [
+        'id'         => (int)$m['id'],
+        'game'       => $game,
+        'score'      => (int)$m['score'],
+        'is_won'     => (int)$m['is_won'] === 1,
+        'completed'  => $done,
+        'answer'     => $done && $word !== '' ? $word : null,
+        'definition' => $done ? (string)($m['definition'] ?? '') : null,
+    ];
+    $view = $game . '_view';
+    if (in_array($game, MINI_GAMES, true)) $out += $view($m, $st, $done);
+    if ($done) {
+        $out['best'] = num("SELECT COALESCE(MAX(score), 0) FROM mini_sessions WHERE user_id = ? AND game = ? AND is_completed = 1", [$m['user_id'], $game]);
+    }
+    return $out;
+}
+
+function mini_load(int $id, int $uid, bool $lock = false): ?array
+{
+    return row(
+        "SELECT m.*, w.word, w.definition FROM mini_sessions m LEFT JOIN words w ON w.id = m.word_id
+         WHERE m.id = ? AND m.user_id = ? LIMIT 1" . ($lock ? ' FOR UPDATE' : ''),
+        [$id, $uid]
+    );
+}
+
+function mini_open(int $uid, string $game): ?array
+{
+    $id = val("SELECT id FROM mini_sessions WHERE user_id = ? AND game = ? AND is_completed = 0 ORDER BY id DESC LIMIT 1", [$uid, $game]);
+    return $id ? mini_load((int)$id, $uid) : null;
+}
+
+function mini_game_param(string $g): string
+{
+    if (!in_array($g, MINI_GAMES, true)) fail('Ийм тоглоом алга.', 404);
+    return $g;
+}
+
+function a_mini(): never
+{
+    $u = require_user();
+    $g = mini_game_param(qs('game'));
+    $m = mini_open((int)$u['id'], $g);
+    ok(['game' => $m ? mini_payload($m) : null, 'allowance' => mini_allowance($u)]);
+}
+
+function a_mini_start(): never
+{
+    $u = require_user();
+    $g = mini_game_param(in_str('game', 16));
+
+    $id = tx(function () use ($u, $g): int {
+        $me = row("SELECT * FROM users WHERE id = ? FOR UPDATE", [$u['id']]);
+        $open = val("SELECT id FROM mini_sessions WHERE user_id = ? AND game = ? AND is_completed = 0 ORDER BY id DESC LIMIT 1", [$me['id'], $g]);
+        if ($open) return (int)$open;
+
+        $start = $g . '_start';
+        [$wordId, $state] = $start((int)$me['id']);
+        $fee = mini_charge($me, $g);
+        q(
+            "INSERT INTO mini_sessions (user_id, game, word_id, state, score, fee_paid, is_won, is_completed, created_at)
+             VALUES (?, ?, ?, ?, 0, ?, 0, 0, NOW())",
+            [$me['id'], $g, $wordId, (string)json_encode($state, JSON_UNESCAPED_UNICODE), $fee]
+        );
+        return (int)db()->lastInsertId();
+    });
+
+    $u = row("SELECT * FROM users WHERE id = ? LIMIT 1", [$u['id']]) ?? $u;
+    ok(['game' => mini_payload(mini_load($id, (int)$u['id'])), 'allowance' => mini_allowance($u), 'balance' => (int)$u['balance']]);
+}
+
+function a_mini_move(): never
+{
+    $u  = require_user();
+    $id = in_int('id');
+
+    $res = tx(function () use ($u, $id): array {
+        $m = mini_load($id, (int)$u['id'], true);
+        if (!$m) fail('Тоглоом олдсонгүй.', 404);
+        if ((int)$m['is_completed'] === 1) fail('Энэ тоглоом дууссан байна.', 409);
+        if (!in_array($m['game'], MINI_GAMES, true)) fail('Ийм тоглоом алга.', 404);
+        $st   = mini_state($m);
+        $move = $m['game'] . '_move';
+        [$done, $won, $score, $info] = $move($m, $st);
+        q(
+            "UPDATE mini_sessions SET state = ?, score = ?, is_won = ?, is_completed = ?, completed_at = ? WHERE id = ?",
+            [(string)json_encode($st, JSON_UNESCAPED_UNICODE), $done ? $score : 0, (int)$won, (int)$done, $done ? now_str() : null, $m['id']]
+        );
+        return $info;
+    });
+
+    ok(['game' => mini_payload(mini_load($id, (int)$u['id'])), 'move' => (object)$res]);
+}
+
+/* ============================================================
+   BLITZ АРЕНА — 60 секунд, холимог үгс. Оноотой тоглолт шагналын сантай.
+   ============================================================ */
+function blitz_pool(int $fees): int
+{
+    return $fees - intdiv($fees * max(0, min(100, (int)BLITZ_RAKE)), 100);
+}
+
+function blitz_places(): int
+{
+    return count(array_filter(array_map('intval', BLITZ_SPLIT), fn(int $x): bool => $x > 0));
+}
+
+function blitz_split(int $pool, int $n): array
+{
+    $w = array_slice(array_values(array_filter(array_map('intval', BLITZ_SPLIT), fn(int $x): bool => $x > 0)), 0, $n);
+    if (!$w || $pool <= 0) return array_fill(0, max(0, $n), 0);
+    $sum = array_sum($w);
+    $out = array_map(fn(int $x): int => intdiv($pool * $x, $sum), $w);
+    $out[0] += $pool - array_sum($out);
+    return $out;
+}
+
+/** Тухайн өдрийн оноотой тоглолтын шилдгүүд (хэрэглэгч бүрийн хамгийн сайн оноо) */
+function blitz_standings(string $date, int $limit = 20): array
+{
+    return rows(
+        "SELECT b.user_id, MAX(b.score) AS best, MIN(b.id) AS first_id, COUNT(*) AS runs, u.username, u.avatar_url
+         FROM blitz_runs b JOIN users u ON u.id = b.user_id
+         WHERE b.run_date = ? AND b.ranked = 1 AND u.is_banned = 0
+         GROUP BY b.user_id, u.username, u.avatar_url
+         HAVING best > 0
+         ORDER BY best DESC, first_id ASC
+         LIMIT " . max(1, $limit),
+        [$date]
+    );
+}
+
+function blitz_finalize_day(string $date): void
+{
+    tx(function () use ($date): void {
+        $ins = q("INSERT IGNORE INTO app_kv (k, v, expires_at) VALUES (?, 'done', 0)", ['blitz_final:' . $date]);
+        if ($ins->rowCount() !== 1) return;
+        $fees    = num("SELECT COALESCE(SUM(fee_paid), 0) FROM blitz_runs WHERE run_date = ? AND ranked = 1", [$date]);
+        $winners = blitz_standings($date, blitz_places());
+        $prizes  = $winners ? blitz_split(blitz_pool($fees), count($winners)) : [];
+        foreach ($winners as $i => $w) {
+            if ($prizes[$i] <= 0) continue;
+            credit((int)$w['user_id'], $prizes[$i], 'blitz_prize', sprintf('Blitz %s — %d-р байр', $date, $i + 1), null, 'won_balance');
+            q("UPDATE blitz_runs SET prize_won = ? WHERE run_date = ? AND user_id = ? AND ranked = 1 ORDER BY score DESC, id ASC LIMIT 1",
+                [$prizes[$i], $date, $w['user_id']]);
+        }
+        if (!$winners) {
+            foreach (rows("SELECT id, user_id, fee_paid FROM blitz_runs WHERE run_date = ? AND ranked = 1 AND fee_paid > 0", [$date]) as $r) {
+                credit((int)$r['user_id'], (int)$r['fee_paid'], 'blitz_refund', 'Blitz ' . $date . ' — ялагчгүй, хураамж буцаав', (int)$r['id']);
+            }
+        }
+    });
+}
+
+/** Өмнөх өдрүүдийн шагналыг олгоно. 00:05-аас хойш, өдөрт нэг л удаа шалгана. */
+function blitz_finalize_due(): void
+{
+    try {
+        $today = today();
+        if (time() < (int)strtotime($today . ' 00:05:00') || kv_get('blitz_checked') === $today) return;
+        $dates = array_column(rows(
+            "SELECT DISTINCT run_date FROM blitz_runs WHERE ranked = 1 AND run_date < ? AND run_date >= ?",
+            [$today, day_shift($today, -14)]
+        ), 'run_date');
+        foreach ($dates as $d) blitz_finalize_day((string)$d);
+        kv_set('blitz_checked', $today, 2 * 86400);
+    } catch (Throwable $e) {
+        error_log('[vgtaa] blitz finalize: ' . $e->getMessage());
+    }
+}
+
+function blitz_free_left(array $u): int
+{
+    if (!is_premium($u) || BLITZ_PREMIUM_FREE <= 0) return 0;
+    $used = num("SELECT COUNT(*) FROM blitz_runs WHERE user_id = ? AND run_date = ? AND ranked = 1 AND fee_paid = 0", [$u['id'], today()]);
+    return max(0, BLITZ_PREMIUM_FREE - $used);
+}
+
+function blitz_left(array $b): float
+{
+    return max(0.0, (float)strtotime((string)$b['ends_at']) - microtime(true));
+}
+
+function blitz_payload(array $b): array
+{
+    $ids  = array_map('intval', json_decode((string)$b['words'], true) ?: []);
+    $idx  = (int)$b['idx'];
+    $done = (int)$b['finished'] === 1 || blitz_left($b) <= 0 || $idx >= count($ids);
+    $cur  = null;
+    if (!$done && isset($ids[$idx])) {
+        $w = (string)val("SELECT word FROM words WHERE id = ? LIMIT 1", [$ids[$idx]]);
+        // Холилт нь тоглолт + индексээр тогтмол — хуудас сэргээхэд өөрчлөгдөхгүй
+        mt_srand(crc32($b['id'] . ':' . $idx));
+        $l = mb_str_split($w, 1, 'UTF-8');
+        for ($i = count($l) - 1; $i > 0; $i--) {
+            $k = mt_rand(0, $i);
+            [$l[$i], $l[$k]] = [$l[$k], $l[$i]];
+        }
+        mt_srand();
+        if (implode('', $l) === $w && count($l) > 1) $l = array_reverse($l);
+        $cur = ['letters' => $l, 'length' => count($l)];
+    }
+    return [
+        'id'       => (int)$b['id'],
+        'ranked'   => (int)$b['ranked'] === 1,
+        'score'    => (int)$b['score'],
+        'solved'   => (int)$b['solved'],
+        'skipped'  => (int)$b['skipped'],
+        'index'    => $idx,
+        'left'     => round(blitz_left($b), 2),
+        'seconds'  => BLITZ_SECONDS,
+        'finished' => $done,
+        'current'  => $cur,
+    ];
+}
+
+function blitz_close_if_over(array $b): array
+{
+    if ((int)$b['finished'] === 0 && blitz_left($b) <= 0) {
+        q("UPDATE blitz_runs SET finished = 1, finished_at = ends_at WHERE id = ? AND finished = 0", [$b['id']]);
+        $b['finished'] = 1;
+    }
+    return $b;
+}
+
+function blitz_arena(array $u): array
+{
+    $today = today();
+    $fees  = num("SELECT COALESCE(SUM(fee_paid), 0) FROM blitz_runs WHERE run_date = ? AND ranked = 1", [$today]);
+    $pool  = blitz_pool($fees);
+    $top   = blitz_standings($today, 20);
+    $me    = null;
+    foreach ($top as $i => $t) if ((int)$t['user_id'] === (int)$u['id']) $me = ['rank' => $i + 1, 'best' => (int)$t['best'], 'runs' => (int)$t['runs']];
+    if (!$me) {
+        $best = row("SELECT MAX(score) AS best, COUNT(*) AS runs FROM blitz_runs WHERE run_date = ? AND ranked = 1 AND user_id = ?", [$today, $u['id']]);
+        if ($best && (int)$best['runs'] > 0) $me = ['rank' => null, 'best' => (int)$best['best'], 'runs' => (int)$best['runs']];
+    }
+    $yday = day_shift($today, -1);
+    $prev = rows(
+        "SELECT b.prize_won, b.score, u.username, u.avatar_url FROM blitz_runs b JOIN users u ON u.id = b.user_id
+         WHERE b.run_date = ? AND b.ranked = 1 AND b.prize_won > 0 ORDER BY b.prize_won DESC LIMIT 3",
+        [$yday]
+    );
+    return [
+        'date'         => $today,
+        'fee'          => BLITZ_FEE,
+        'free_left'    => blitz_free_left($u),
+        'pool'         => $pool,
+        'prizes'       => blitz_split($pool, blitz_places()),
+        'participants' => num("SELECT COUNT(DISTINCT user_id) FROM blitz_runs WHERE run_date = ? AND ranked = 1", [$today]),
+        'leaders'      => array_map(fn(array $t, int $i): array => [
+            'rank' => $i + 1, 'user_id' => (int)$t['user_id'], 'username' => (string)$t['username'],
+            'avatar_url' => (string)$t['avatar_url'], 'best' => (int)$t['best'], 'runs' => (int)$t['runs'],
+        ], $top, array_keys($top)),
+        'me'           => $me,
+        'yesterday'    => $prev,
+    ];
+}
+
+function blitz_open_run(int $uid): ?array
+{
+    $b = row("SELECT * FROM blitz_runs WHERE user_id = ? AND finished = 0 ORDER BY id DESC LIMIT 1", [$uid]);
+    if (!$b) return null;
+    $b = blitz_close_if_over($b);
+    return (int)$b['finished'] === 1 ? null : $b;
+}
+
+function a_blitz(): never
+{
+    $u = require_user();
+    blitz_finalize_due();
+    $open = blitz_open_run((int)$u['id']);
+    ok(['arena' => blitz_arena($u), 'run' => $open ? blitz_payload($open) : null, 'allowance' => mini_allowance($u)]);
+}
+
+function a_blitz_start(): never
+{
+    $u      = require_user();
+    $ranked = in_bool('ranked');
+    $today  = today();
+
+    $id = tx(function () use ($u, $ranked, $today): int {
+        $me = row("SELECT * FROM users WHERE id = ? FOR UPDATE", [$u['id']]);
+        $open = blitz_open_run((int)$me['id']);
+        if ($open) return (int)$open['id'];
+
+        $ids = array_map('intval', array_column(rows(
+            "SELECT id FROM words WHERE is_active = 1 AND CHAR_LENGTH(word) BETWEEN 4 AND 7 ORDER BY RAND() LIMIT 40"
+        ), 'id'));
+        if (count($ids) < 5) fail('Үгийн сан хангалтгүй байна.', 409);
+
+        $fee = 0;
+        if ($ranked) {
+            if (blitz_free_left($me) <= 0) {
+                $fee = BLITZ_FEE;
+                credit((int)$me['id'], -$fee, 'blitz_fee', 'Blitz арена — оноотой тоглолт (' . $today . ')');
+            }
+        } else {
+            mini_charge($me, 'blitz');
+        }
+        q(
+            "INSERT INTO blitz_runs (user_id, run_date, ranked, fee_paid, words, idx, score, solved, skipped, started_at, ends_at, finished)
+             VALUES (?, ?, ?, ?, ?, 0, 0, 0, 0, NOW(), ?, 0)",
+            [$me['id'], $today, (int)$ranked, $fee, (string)json_encode($ids), date('Y-m-d H:i:s', time() + BLITZ_SECONDS + 1)]
+        );
+        return (int)db()->lastInsertId();
+    });
+
+    $u = row("SELECT * FROM users WHERE id = ? LIMIT 1", [$u['id']]) ?? $u;
+    $b = row("SELECT * FROM blitz_runs WHERE id = ? LIMIT 1", [$id]);
+    ok(['run' => blitz_payload($b), 'balance' => (int)$u['balance'], 'allowance' => mini_allowance($u)]);
+}
+
+function a_blitz_answer(): never
+{
+    $u    = require_user();
+    $id   = in_int('id');
+    $skip = in_bool('skip');
+    $guess = normalize_word(in_str('guess', 64));
+
+    $res = tx(function () use ($u, $id, $skip, $guess): array {
+        $b = row("SELECT * FROM blitz_runs WHERE id = ? AND user_id = ? LIMIT 1 FOR UPDATE", [$id, $u['id']]);
+        if (!$b) fail('Тоглолт олдсонгүй.', 404);
+        // Сүлжээний саатлыг тооцож 1.5 секундийн хүлцэл
+        if ((int)$b['finished'] === 1 || blitz_left($b) < -1.5) {
+            blitz_close_if_over($b);
+            return ['ok' => false, 'over' => true];
+        }
+        $ids = array_map('intval', json_decode((string)$b['words'], true) ?: []);
+        $idx = (int)$b['idx'];
+        if (!isset($ids[$idx])) return ['ok' => false, 'over' => true];
+        $word = (string)val("SELECT word FROM words WHERE id = ? LIMIT 1", [$ids[$idx]]);
+
+        if ($skip) {
+            q("UPDATE blitz_runs SET idx = idx + 1, skipped = skipped + 1 WHERE id = ?", [$id]);
+            return ['ok' => false, 'skipped' => true, 'word' => $word];
+        }
+        if (!is_mn_word($guess) || wlen($guess) !== wlen($word)) fail(wlen($word) . ' үсэгтэй үг бичнэ үү.', 422);
+        if (!anagram_ok($guess, $word)) return ['ok' => false];
+        $pts = wlen($word) * 10;
+        q("UPDATE blitz_runs SET idx = idx + 1, solved = solved + 1, score = score + ? WHERE id = ?", [$pts, $id]);
+        return ['ok' => true, 'points' => $pts, 'word' => $word];
+    });
+
+    $b = row("SELECT * FROM blitz_runs WHERE id = ? LIMIT 1", [$id]);
+    $b = blitz_close_if_over($b);
+    $ids = json_decode((string)$b['words'], true) ?: [];
+    if ((int)$b['finished'] === 0 && (int)$b['idx'] >= count($ids)) {
+        q("UPDATE blitz_runs SET finished = 1, finished_at = NOW() WHERE id = ?", [$id]);
+        $b['finished'] = 1;
+    }
+    ok(['move' => $res, 'run' => blitz_payload($b)]);
+}
+
+function a_blitz_finish(): never
+{
+    $u = require_user();
+    $id = in_int('id');
+    q("UPDATE blitz_runs SET finished = 1, finished_at = NOW() WHERE id = ? AND user_id = ? AND finished = 0", [$id, $u['id']]);
+    $b = row("SELECT * FROM blitz_runs WHERE id = ? AND user_id = ? LIMIT 1", [$id, $u['id']]);
+    if (!$b) fail('Тоглолт олдсонгүй.', 404);
+    ok(['run' => blitz_payload($b), 'arena' => blitz_arena($u)]);
+}
+
+/* ── Тоглоомын төвийн нүүр: эрх, долоо хоногийн оноо, арена ─── */
+function a_games(): never
+{
+    $u = require_user();
+    blitz_finalize_due();
+    $from = day_shift(today(), -6) . ' 00:00:00';
+    $board = rows(
+        "SELECT t.user_id, SUM(t.pts) AS points, u.username, u.avatar_url, u.is_premium, u.premium_expires_at
+         FROM (
+            SELECT user_id, score AS pts FROM mini_sessions WHERE is_completed = 1 AND completed_at >= ?
+            UNION ALL
+            SELECT user_id, score AS pts FROM blitz_runs WHERE started_at >= ?
+         ) t JOIN users u ON u.id = t.user_id
+         WHERE u.is_banned = 0
+         GROUP BY t.user_id, u.username, u.avatar_url, u.is_premium, u.premium_expires_at
+         HAVING points > 0
+         ORDER BY points DESC, t.user_id ASC
+         LIMIT 100",
+        [$from, $from]
+    );
+    $leaders = [];
+    $me = null;
+    foreach ($board as $i => $r) {
+        $item = ['rank' => $i + 1, 'id' => (int)$r['user_id'], 'username' => (string)$r['username'], 'avatar_url' => (string)$r['avatar_url'],
+                 'is_premium' => is_premium($r), 'points' => (int)$r['points']];
+        if ($item['id'] === (int)$u['id']) $me = $item;
+        if ($i < 10) $leaders[] = $item;
+    }
+    $open = [];
+    foreach (rows("SELECT game FROM mini_sessions WHERE user_id = ? AND is_completed = 0 GROUP BY game", [$u['id']]) as $r) $open[] = (string)$r['game'];
+    $mine = row(
+        "SELECT COUNT(*) AS played, COALESCE(SUM(is_won), 0) AS won, COALESCE(SUM(score), 0) AS points FROM mini_sessions WHERE user_id = ? AND is_completed = 1",
+        [$u['id']]
+    );
+    $per = [];
+    foreach (rows(
+        "SELECT game, COUNT(*) AS played, COALESCE(SUM(is_won), 0) AS won, COALESCE(MAX(score), 0) AS best
+         FROM mini_sessions WHERE user_id = ? AND is_completed = 1 GROUP BY game",
+        [$u['id']]
+    ) as $r) {
+        $per[(string)$r['game']] = ['played' => (int)$r['played'], 'won' => (int)$r['won'], 'best' => (int)$r['best']];
+    }
+    $bb = row("SELECT COUNT(*) AS played, COALESCE(MAX(score), 0) AS best FROM blitz_runs WHERE user_id = ?", [$u['id']]);
+    $per['blitz'] = ['played' => (int)($bb['played'] ?? 0), 'won' => 0, 'best' => (int)($bb['best'] ?? 0)];
+    ok([
+        'allowance'  => mini_allowance($u),
+        'quiz_ready' => quiz_ready(),
+        'per_game'   => (object)$per,
+        'open'       => $open,
+        'arena'      => blitz_arena($u),
+        'leaders'    => $leaders,
+        'me'         => $me,
+        'mine'       => ['played' => (int)($mine['played'] ?? 0), 'won' => (int)($mine['won'] ?? 0), 'points' => (int)($mine['points'] ?? 0)],
     ]);
 }
 
@@ -2277,6 +3296,9 @@ function a_admin_overview(): never
         'deposit_pending'     => num("SELECT COUNT(*) FROM deposits WHERE status = 'submitted'"),
         'deposit_pending_sum' => num("SELECT COALESCE(SUM(amount), 0) FROM deposits WHERE status = 'submitted'"),
         'deposits_30d'        => num("SELECT COALESCE(SUM(amount), 0) FROM deposits WHERE status = 'approved' AND processed_at >= ?", [day_shift($today, -29) . ' 00:00:00']),
+        // v7: сэжүүр + нэмэлт тоглолт + Blitz-ийн цэвэр орлого (олгосон шагнал, буцаалтыг хассан)
+        'games_revenue_30d'   => -num("SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE type IN ('hint', 'mini_play', 'blitz_fee', 'blitz_prize', 'blitz_refund') AND created_at >= ?", [day_shift($today, -29) . ' 00:00:00']),
+        'games_revenue_today' => -num("SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE type IN ('hint', 'mini_play', 'blitz_fee', 'blitz_prize', 'blitz_refund') AND created_at >= ?", [$start]),
     ];
     $days = rows(
         "SELECT game_date, COUNT(*) AS games, COALESCE(SUM(is_won), 0) AS wins, COALESCE(SUM(reward_amount), 0) AS paid
@@ -2806,8 +3828,10 @@ function expected_columns(): array
         'users'              => ['id', 'google_id', 'email', 'username', 'avatar_url', 'balance', 'won_balance', 'referral_balance', 'referral_code', 'referred_by', 'is_premium', 'premium_expires_at', 'is_admin', 'is_banned', 'extra_plays', 'signup_ip', 'last_ip', 'last_seen_at', 'created_at'],
         'words'              => ['id', 'word', 'length', 'definition', 'is_answer', 'is_active', 'used_count', 'last_used_date'],
         'daily_words'        => ['id', 'word_id', 'game_date', 'is_active', 'is_fixed'],
-        'practice_sessions'  => ['id', 'user_id', 'word_id', 'attempts', 'attempts_count', 'is_won', 'is_completed', 'created_at', 'completed_at'],
-        'game_sessions'      => ['id', 'user_id', 'word_id', 'game_date', 'attempts', 'attempts_count', 'is_won', 'is_completed', 'reward_amount', 'reward_paid', 'created_at', 'completed_at'],
+        'practice_sessions'  => ['id', 'user_id', 'word_id', 'attempts', 'attempts_count', 'is_won', 'is_completed', 'hints', 'created_at', 'completed_at'],
+        'game_sessions'      => ['id', 'user_id', 'word_id', 'game_date', 'attempts', 'attempts_count', 'is_won', 'is_completed', 'reward_amount', 'reward_paid', 'hints', 'created_at', 'completed_at'],
+        'mini_sessions'      => ['id', 'user_id', 'game', 'word_id', 'state', 'score', 'fee_paid', 'is_won', 'is_completed', 'created_at', 'completed_at'],
+        'blitz_runs'         => ['id', 'user_id', 'run_date', 'ranked', 'fee_paid', 'words', 'idx', 'score', 'solved', 'skipped', 'started_at', 'ends_at', 'finished', 'finished_at', 'prize_won'],
         'archive_sessions'   => ['id', 'user_id', 'game_date', 'word_id', 'attempts', 'attempts_count', 'is_won', 'is_completed', 'created_at', 'completed_at'],
         'transactions'       => ['id', 'user_id', 'type', 'amount', 'balance_before', 'balance_after', 'description', 'reference_id', 'created_at'],
         'referrals'          => ['id', 'referrer_id', 'referred_id', 'is_verified', 'bonus_paid', 'created_at'],
@@ -2905,6 +3929,15 @@ $routes = [
     'deposit_cancel'    => ['POST', 'a_deposit_cancel'],
     'tournament'        => ['GET',  'a_tournament'],
     'tournament_join'   => ['POST', 'a_tournament_join'],
+    'hint'              => ['POST', 'a_hint'],
+    'games'             => ['GET',  'a_games'],
+    'mini'              => ['GET',  'a_mini'],
+    'mini_start'        => ['POST', 'a_mini_start'],
+    'mini_move'         => ['POST', 'a_mini_move'],
+    'blitz'             => ['GET',  'a_blitz'],
+    'blitz_start'       => ['POST', 'a_blitz_start'],
+    'blitz_answer'      => ['POST', 'a_blitz_answer'],
+    'blitz_finish'      => ['POST', 'a_blitz_finish'],
     // админ
     'admin_overview'    => ['GET',  'a_admin_overview'],
     'admin_users'       => ['GET',  'a_admin_users'],

@@ -176,8 +176,12 @@ $COLUMNS = [
         'is_completed'   => 'TINYINT(1) NOT NULL DEFAULT 0',
         'reward_amount'  => 'INT NOT NULL DEFAULT 0',
         'reward_paid'    => 'TINYINT(1) NOT NULL DEFAULT 0',
+        'hints'          => 'VARCHAR(64) NULL',
         'created_at'     => 'DATETIME NULL DEFAULT CURRENT_TIMESTAMP',
         'completed_at'   => 'DATETIME NULL',
+    ],
+    'practice_sessions' => [
+        'hints' => 'VARCHAR(64) NULL',
     ],
     'transactions' => [
         'balance_before' => 'INT NOT NULL DEFAULT 0',
@@ -237,6 +241,8 @@ $INDEXES = [
     ['withdrawals',        ['user_id'],                  false, 'idx_withdrawals_user'],
     ['tournaments',        ['tournament_date'],          true,  'uq_tournaments_date'],
     ['tournament_entries', ['tournament_id', 'user_id'], true,  'uq_entries_user'],
+    ['mini_sessions',      ['user_id', 'game', 'is_completed'], false, 'idx_mini_open'],
+    ['blitz_runs',         ['run_date', 'ranked', 'score'], false, 'idx_blitz_day'],
 ];
 
 /* ── 140 монгол үг (тайлбартай) ───────────────────────────── */
@@ -387,7 +393,7 @@ $SEED = [
 function status_summary(PDO $pdo, array $COLUMNS): array
 {
     $missing = [];
-    foreach (['users', 'words', 'daily_words', 'game_sessions', 'archive_sessions', 'transactions', 'referrals', 'withdrawals', 'tournaments', 'tournament_entries', 'app_kv', 'deposits', 'practice_sessions'] as $t) {
+    foreach (['users', 'words', 'daily_words', 'game_sessions', 'archive_sessions', 'transactions', 'referrals', 'withdrawals', 'tournaments', 'tournament_entries', 'app_kv', 'deposits', 'practice_sessions', 'mini_sessions', 'blitz_runs'] as $t) {
         if (!table_exists($pdo, $t)) {
             $missing[] = $t . ' (хүснэгт)';
             continue;
