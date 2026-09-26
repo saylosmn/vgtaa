@@ -2,3 +2,4 @@
 *.log
 *.zip
 config.secret.php
+*.blend1

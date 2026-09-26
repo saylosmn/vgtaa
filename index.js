@@ -16,7 +16,7 @@
 'use strict';
 
 (() => {
-  const VERSION = '7.6.0';
+  const VERSION = '7.7.0';
 
   /* ============================================================
      1. ТУСЛАХ ФУНКЦУУД
@@ -95,6 +95,7 @@
       else delete d.dataset.contrast;
       const meta = $('meta[name="theme-color"]');
       if (meta) meta.content = isDark() ? '#0a0f1f' : '#f5f6fb';
+      if (Native.active) Native.send('theme', { dark: isDark() });
     },
   };
   const isDark = () => {
@@ -312,6 +313,7 @@
           if (closed) return;
           closed = true;
           Modal.stack = Modal.stack.filter((x) => x !== m);
+          Native.modal();
           wrap.classList.remove('open');
           wrap.classList.add('closing');
           setTimeout(() => {
@@ -327,6 +329,7 @@
         if (e.target === wrap || e.target.closest('[data-close]')) m.close();
       });
       Modal.stack.push(m);
+      Native.modal();
       requestAnimationFrame(() => {
         wrap.classList.add('open');
         const af = $('[data-autofocus]', dlg);
@@ -472,6 +475,7 @@
   };
 
   const shareOrCopy = async (text, title = 'Үг Таа') => {
+    if (Native.active) { Native.send('share', { text, title }); return; }
     if (navigator.share && matchMedia('(pointer: coarse)').matches) {
       try { await navigator.share({ title, text }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
     }
@@ -556,6 +560,67 @@
     },
   };
 
+  /* ── Android апп (android/) ───────────────────────────────────────
+     Апп нь WebView-ийн User-Agent-д «UgTaaApp/» нэмж, window.UgTaaAndroid-ийг
+     зөвхөн энэ сайтын origin-д суулгана. WebView дотор Google-ийн вэб нэвтрэлт
+     хоригдсон тул нэвтрэлтийг Android-ийн Credential Manager хийж, ID token-ыг
+     энд дамжуулна — сервер хөтчийн нэвтрэлттэй яг адил шалгана. */
+  const GOOGLE_G = '<svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 7l7.2 5.6c4.2-3.9 7.1-9.6 7.1-17.1z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.2-5.6c-2 1.4-4.7 2.3-8.7 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>';
+
+  const Native = {
+    bridge: null,
+    get active() { return !!this.bridge; },
+
+    init() {
+      const b = window.UgTaaAndroid;
+      if (!b || !/UgTaaApp\//.test(navigator.userAgent)) return;
+      this.bridge = b;
+      document.documentElement.classList.add('native-app');
+      b.onmessage = (e) => {
+        let m;
+        try { m = JSON.parse(e.data); } catch { return; }
+        if (m.type === 'credential' && typeof m.credential === 'string') {
+          Auth.credential({ credential: m.credential });
+        } else if (m.type === 'signin_error') {
+          $$('[data-gsi]').forEach((el) => el.classList.remove('loading'));
+          if (m.message) Toast.show(m.message, 'error', 5000);
+        } else if (m.type === 'route' && typeof m.hash === 'string' && /^#\/[A-Za-z0-9/_-]*$/.test(m.hash)) {
+          location.hash = m.hash; // нэвтрээгүй бол hashchange → Landing.routeNote() хадгална
+        } else if (m.type === 'back') {
+          const top = Modal.top(); // Android-ийн «буцах» товч эхлээд нээлттэй цонхыг хаана
+          if (top) top.close();
+        }
+      };
+      this.send('theme', { dark: isDark() }); // дараагийн өөрчлөлтийг Prefs.apply() илгээнэ
+      // "ready"-г boot() дуусахад илгээнэ — тэр хүртэл апп 3D ачааллын дэлгэцээ харуулна
+    },
+
+    send(type, data = {}) {
+      try { this.bridge.postMessage(JSON.stringify({ type, ...data })); } catch { /* апп хаагдаж байна */ }
+    },
+
+    renderButtons() {
+      $$('[data-gsi]').forEach((el) => {
+        el.innerHTML = html`<button type="button" class="native-gsi" data-action="native-signin">${raw(GOOGLE_G)}<span>Google-ээр үргэлжлүүлэх</span></button>`;
+      });
+    },
+
+    signIn() {
+      $$('[data-gsi]').forEach((el) => el.classList.add('loading'));
+      this.send('signIn');
+    },
+
+    /** Нээлттэй цонх байвал апп «буцах» товчийг энд илгээнэ */
+    modal() {
+      if (this.active) this.send('modal', { open: Modal.stack.length > 0 });
+    },
+
+    /** Өдрийн үгийн төлөв — апп 20:00-д таагаагүй бол сануулга гаргана */
+    daily(g) {
+      if (this.active && g.mode === 'daily' && g.date) this.send('daily', { date: g.date, done: !!g.done });
+    },
+  };
+
   const Auth = {
     gsiTries: 0,
 
@@ -579,6 +644,7 @@
     },
 
     initGsi() {
+      if (Native.active) { Native.renderButtons(); return; }
       const g = window.google && window.google.accounts && window.google.accounts.id;
       if (!g) {
         if (++this.gsiTries < 60) setTimeout(() => this.initGsi(), 150);
@@ -629,6 +695,7 @@
       Game.reset();
       Modal.closeAll();
       try { window.google && google.accounts.id.disableAutoSelect(); } catch { /* */ }
+      if (Native.active) Native.send('signOut');
       $('#app').hidden = true;
       $$('#main > .page:not(#page-play)').forEach((p) => { p.innerHTML = ''; });
       document.body.classList.remove('in-app', 'is-premium');
@@ -728,6 +795,7 @@
     },
 
     checkInApp() {
+      if (Native.active) return; // Манай Android апп — нэвтрэлтийг натив хийнэ
       const ua = navigator.userAgent || '';
       if (!/FBAN|FBAV|FB_IAB|Instagram|Line\/|MicroMessenger|TikTok|Snapchat|; wv\)/i.test(ua)) return;
       const el = $('#inapp-warning');
@@ -1093,6 +1161,7 @@
       this.rows.forEach((row, i) => Board.paintRow(i, Array.from(row.guess), row.result));
       Keyboard.build();
       this.render();
+      Native.daily(this);
     },
 
     applyKeys(guess, result) {
@@ -1284,6 +1353,7 @@
       if (res.hinted) this.hinted = true;
       if (res.stats) App.stats = res.stats;
       if (res.tournament) this.tournament = res.tournament;
+      Native.daily(this);
       const last = this.rows.length - 1;
       if (this.won) {
         Board.dance(last);
@@ -4042,6 +4112,7 @@
       else Game.loadDaily(true);
     },
     reload: () => location.reload(),
+    'native-signin': () => Native.signIn(),
     'copy-url': () => copyText(Landing.resumeUrl(), 'Холбоос хуулагдлаа — хөтөчдөө буулгаарай'),
     'join-tournament': (b) => Pages.tournament.join(Number(b.dataset.fee)),
     'buy-premium': () => Pages.premium.buy(),
@@ -4363,6 +4434,7 @@
     hydrateIcons();
     captureReferral();
     bindEvents();
+    Native.init();
     try { localStorage.removeItem('auth_token'); sessionStorage.removeItem('auth_token'); } catch { /* v5 */ }
 
     if ('serviceWorker' in navigator && location.protocol === 'https:') {
@@ -4404,6 +4476,7 @@
     const splash = $('#splash');
     splash.classList.add('hide');
     setTimeout(() => splash.remove(), 400);
+    if (Native.active) Native.send('ready', { version: VERSION });
   };
 
   boot();

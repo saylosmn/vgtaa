@@ -524,6 +524,12 @@ main { outline: none; }
 .login-card { display: grid; justify-items: center; gap: 12px; width: min(100%, 420px); padding: 22px 20px; border-radius: 22px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); scroll-margin-top: 20px; }
 .gsi-slot { min-height: 44px; width: 100%; display: grid; place-items: center; }
 .gsi-slot.loading { opacity: .5; pointer-events: none; }
+/* Android апп доторх натив Google товч — Google-ийн брэндийн дүрмийн дагуу */
+.native-gsi { display: inline-flex; align-items: center; justify-content: center; gap: 12px; width: min(100%, 360px); height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid #747775; background: #fff; color: #1f1f1f; font: 500 15px/1 Rubik, system-ui, sans-serif; cursor: pointer; }
+:root[data-theme="dark"] .native-gsi, :root:not([data-theme]) .native-gsi { background: #131314; color: #e3e3e3; border-color: #8e918f; }
+@media (prefers-color-scheme: light) { :root:not([data-theme]) .native-gsi { background: #fff; color: #1f1f1f; border-color: #747775; } }
+.native-gsi:active { transform: scale(.98); }
+.native-gsi svg { flex: none; }
 .gsi-fallback, .fine { font-size: 12.5px; color: var(--text-3); }
 .ref-note { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--good); }
 .route-note { color: var(--text); text-align: center; }

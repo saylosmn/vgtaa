@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Үг Таа</string>
+    <string name="tagline">Өдөр бүр нэг үг. Тааж, шагнал ав.</string>
+    <string name="loading">Ачаалж байна…</string>
+    <string name="offline_title">Интернэт холболт алга</string>
+    <string name="offline_text">Холболтоо шалгаад дахин оролдоно уу. Холбогдмогц өөрөө нээгдэнэ.</string>
+    <string name="load_error">Сайт ачаалагдсангүй (%1$s)</string>
+    <string name="load_slow">Сайт ачаалагдахгүй удаж байна. Интернэтээ шалгаад дахин оролдоно уу.</string>
+    <string name="retry">Дахин оролдох</string>
+    <string name="mascot_desc">Үг Таа-гийн дүр — монгол малгайтай ногоон үсгэн хавтан. Чирж эргүүлээд, товшвол үсэрнэ.</string>
+    <string name="share_title">Хуваалцах</string>
+    <string name="no_app_for_link">Энэ холбоосыг нээх апп олдсонгүй</string>
+
+    <string name="reminder_channel">Өдрийн үгийн сануулга</string>
+    <string name="reminder_channel_desc">Өдрийн үгээ таагаагүй бол орой 20:00-д сануулна</string>
+    <string name="reminder_title">Өнөөдрийн үг чамайг хүлээж байна 🔤</string>
+    <string name="reminder_text">Шөнө дунд шинэ үг гарахаас өмнө тааж, шагналаа аваарай!</string>
+
+    <string name="signin_no_account">Энэ утсанд Google бүртгэл алга. Тохиргоо → Бүртгэл хэсгээс Google бүртгэлээ нэмээд дахин оролдоно уу.</string>
+    <string name="signin_no_play">Google-ээр нэвтрэхэд Google Play үйлчилгээ шаардлагатай.</string>
+    <string name="signin_not_registered">Апп Google Cloud-д бүртгэгдээгүй байна (Android OAuth client, SHA-1). android/README.md-г үзнэ үү.</string>
+    <string name="signin_failed">Google-ээр нэвтэрч чадсангүй. Дахин оролдоно уу.</string>
+</resources>

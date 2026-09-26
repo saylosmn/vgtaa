@@ -76,6 +76,11 @@ define('DEPOSIT_ENV', [
     'deposit_account_number' => preg_replace('/[\s\-]/', '', $__env('DEPOSIT_ACCOUNT_NUMBER')) ?? '',
     'deposit_iban'           => strtoupper(preg_replace('/\s+/', '', $__env('DEPOSIT_IBAN')) ?? ''),
 ]);
+/* Android апп (android/ хавтас). /.well-known/assetlinks.json-оор App Links баталгаажина.
+ * ANDROID_CERT_SHA256: гарын үсгийн SHA-256 хээ(нүүд), таслалаар — Play Console → App integrity-ээс,
+ * эсвэл `gradlew signingReport`. Хоосон бол холбоос апп-д шууд нээгдэхгүй (сонголт асууна). */
+define('ANDROID_PACKAGE',     $__env('ANDROID_PACKAGE', 'mn.ugtaa.app'));
+define('ANDROID_CERT_SHA256', $__env('ANDROID_CERT_SHA256'));
 unset($__secret, $__env);
 
 /** MySQL холболтын DSN (api.php, setup.php хоёулаа ашиглана) */

@@ -20,7 +20,7 @@
  */
 declare(strict_types=1);
 
-const APP_VERSION = '7.6.0';
+const APP_VERSION = '7.7.0';
 
 define('VGTAA', true);
 require __DIR__ . '/config.php';
@@ -4536,6 +4536,20 @@ function a_admin_health(): never
     ok(['checks' => $checks]);
 }
 
+/* Android апп-ын App Links баталгаажуулалт — /.well-known/assetlinks.json энд чиглэнэ */
+function a_assetlinks(): never
+{
+    $fps = array_values(array_filter(
+        array_map(fn(string $s): string => strtoupper(trim($s)), explode(',', ANDROID_CERT_SHA256)),
+        fn(string $s): bool => (bool)preg_match('/^([0-9A-F]{2}:){31}[0-9A-F]{2}$/', $s)
+    ));
+    header('Cache-Control: public, max-age=3600');
+    respond($fps ? [[
+        'relation' => ['delegate_permission/common.handle_all_urls'],
+        'target'   => ['namespace' => 'android_app', 'package_name' => ANDROID_PACKAGE, 'sha256_cert_fingerprints' => $fps],
+    ]] : []);
+}
+
 /* ============================================================
    ROUTER
    ============================================================ */
@@ -4543,6 +4557,7 @@ $routes = [
     // нийтийн
     'config'            => ['GET',  'a_config'],
     'ping'              => ['GET',  'a_ping'],
+    'assetlinks'        => ['GET',  'a_assetlinks'],
     'google_login'      => ['POST', 'a_google_login'],
     // хэрэглэгч
     'me'                => ['GET',  'a_me'],
@@ -4606,13 +4621,13 @@ try {
     $action = $_GET['action'] ?? '';
     if (!is_string($action) || !isset($routes[$action])) fail('Тодорхойгүй үйлдэл.', 404);
     // Шинэ сервер дээр нууц түлхүүр тохируулаагүй бол token хуурамчаар үүсгэх боломжтой болно → ажиллахгүй
-    if (strlen(JWT_SECRET) < 32 && !in_array($action, ['ping', 'config'], true)) {
+    if (strlen(JWT_SECRET) < 32 && !in_array($action, ['ping', 'config', 'assetlinks'], true)) {
         fail('Сервер тохируулагдаагүй байна: JWT_SECRET орчны хувьсагч (32+ тэмдэгт) шаардлагатай.', 503, ['code' => 'server_not_configured']);
     }
     [$method, $handler] = $routes[$action];
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== $method) fail('Хүсэлтийн төрөл буруу.', 405);
     // Telegram-д дарагдсан товчнуудыг ар талд шалгана (poll горим)
-    if (!in_array($action, ['telegram_webhook', 'admin_telegram', 'ping'], true)) {
+    if (!in_array($action, ['telegram_webhook', 'admin_telegram', 'ping', 'assetlinks'], true)) {
         after_response(function (): void { telegram_poll(); });
     }
     $handler();

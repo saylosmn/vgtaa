@@ -1,0 +1,13 @@
+.gradle/
+.kotlin/
+build/
+local.properties
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+# Release гарын үсгийн түлхүүр — хэзээ ч git-д оруулахгүй
+keystore.properties
+*.jks
+*.keystore

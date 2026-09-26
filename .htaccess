@@ -11,11 +11,14 @@ DirectoryIndex index.html
   RewriteCond %{HTTP:Authorization} .+
   RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
+  # Android апп-ын App Links баталгаажуулалт (ANDROID_CERT_SHA256 тохиргооноос)
+  RewriteRule ^\.well-known/assetlinks\.json$ api.php?action=assetlinks [L,QSA]
+
   # .git, .env гэх мэт далд файл/хавтсыг хаана
   RewriteRule (^|/)\.(?!well-known/) - [F,L]
 
   # Vercel/Docker-ийн туслах хавтсууд энд хэрэггүй
-  RewriteRule ^(api|deploy)/ - [F,L]
+  RewriteRule ^(api|deploy|android|design)/ - [F,L]
 </IfModule>
 
 <IfModule mod_setenvif.c>

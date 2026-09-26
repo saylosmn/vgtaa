@@ -34,6 +34,7 @@
     },
     { "src": "/api\\.php", "dest": "/api/index.php" },
     { "src": "/setup\\.php", "dest": "/api/setup.php" },
+    { "src": "/\\.well-known/assetlinks\\.json", "dest": "/api/index.php?action=assetlinks" },
     {
       "src": "/(.*\\.(php|sql|md|yaml|yml|sh|lock|log)|Dockerfile|deploy/.*|\\..*)",
       "status": 404,
