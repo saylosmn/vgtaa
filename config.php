@@ -49,13 +49,13 @@ define('PLATFORM', getenv('VERCEL') ? 'vercel' : (getenv('RENDER') ? 'render' : 
 $__autoUrl = (string)(getenv('RENDER_EXTERNAL_URL') ?: '');
 if ($__autoUrl === '' && getenv('VERCEL_PROJECT_PRODUCTION_URL')) $__autoUrl = 'https://' . getenv('VERCEL_PROJECT_PRODUCTION_URL');
 /* Хуваалцах холбоос, Telegram webhook-д ашиглана. Render/Vercel дээр тохируулаагүй бол автоматаар олно. */
-define('APP_URL',      rtrim($__env('APP_URL', $__autoUrl !== '' ? $__autoUrl : 'https://vgtaa.fwh.is'), '/'));
+define('APP_URL',      rtrim($__env('APP_URL', $__autoUrl !== '' ? $__autoUrl : 'https://vgtaa.vercel.app'), '/'));
 define('APP_TIMEZONE', 'Asia/Ulaanbaatar');       // Өдрийн үг Монголын 00:00-д солигдоно
 /* Proxy-ийн ард (Render, Vercel) хэрэглэгчийн жинхэнэ IP-г X-Forwarded-For-оос авна */
 define('BEHIND_PROXY', in_array(strtolower($__env('BEHIND_PROXY', PLATFORM === 'shared' ? '0' : '1')), ['1', 'true', 'yes', 'on'], true));
 unset($__autoUrl);
 define('ALLOWED_ORIGINS', array_values(array_unique(array_filter(array_merge(
-    [APP_URL, 'https://vgtaa.fwh.is', 'http://vgtaa.fwh.is'],
+    [APP_URL, 'https://vgtaa.vercel.app', 'https://vgtaa.fwh.is', 'http://vgtaa.fwh.is'],
     array_map('trim', explode(',', $__env('EXTRA_ORIGINS')))   // Өөр домэйнээс API дуудах бол
 )))));
 define('TOKEN_TTL_DAYS', 30);

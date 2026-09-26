@@ -16,7 +16,7 @@
 'use strict';
 
 (() => {
-  const VERSION = '7.5.0';
+  const VERSION = '7.5.1';
 
   /* ============================================================
      1. ТУСЛАХ ФУНКЦУУД
@@ -539,6 +539,11 @@
     },
 
     enter() {
+      // Нэвтрэхээс өмнө нээх гэж байсан хуудас (жишээ нь дуэлийн урилга) руу буцаана
+      const next = session.get('next');
+      session.del('next');
+      if (next && !/^#\//.test(location.hash)) history.replaceState(null, '', location.pathname + location.search + next);
+      $('#route-note').hidden = true;
       $('#landing').hidden = true;
       $('#app').hidden = false;
       document.body.classList.add('in-app');
@@ -657,6 +662,7 @@
         $('#ref-note').hidden = false;
       }
       this.renderFaq();
+      this.routeNote();
       this.checkInApp();
       this.demo();
       Auth.initGsi();
@@ -679,12 +685,38 @@
       $('#faq-list').innerHTML = html`${items.map(([q, a]) => html`<details class="faq-item"><summary>${q}${icon('right', 'chev')}</summary><p>${a}</p></details>`)}`;
     },
 
+    /* Нэвтрээгүй хүн #/wallet, #/g/duel/КОД мэт холбоос нээвэл: хаана очихыг нь хадгалж,
+       * «эхлээд нэвтэрнэ үү» гэж хэлнэ. Нэвтэрмэгц App.enter() тэр хуудсыг нээнэ. */
+    routeNote() {
+      const note = $('#route-note');
+      const m = location.hash.match(/^#\/(.+)/);
+      if (m) session.set('next', '#/' + m[1].split('/').filter(Boolean).join('/'));
+      const next = session.get('next');
+      if (!next) { note.hidden = true; return false; }
+      const [page, sub, code] = next.slice(2).split('/');
+      note.innerHTML = page === 'g' && sub === 'duel' && code
+        ? html`${icon('swords')} Танд дуэлийн урилга ирсэн. Нэвтэрмэгц шууд нээгдэнэ.`
+        : html`${icon('lock')} «${TITLES[page] || 'Энэ хуудас'}» хэсгийг нээхийн тулд эхлээд нэвтэрнэ үү.`;
+      note.hidden = false;
+      return true;
+    },
+
+    /* Өөр хөтөч рүү шилжихэд хадгалсан хуудсаа алдахгүй холбоос */
+    resumeUrl() {
+      const next = session.get('next');
+      if (!next) return location.href.replace(/#login$/, '');
+      const p = new URLSearchParams(location.search);
+      p.set('go', next.slice(2));
+      return `${location.origin}${location.pathname}?${p}`;
+    },
+
     checkInApp() {
       const ua = navigator.userAgent || '';
       if (!/FBAN|FBAV|FB_IAB|Instagram|Line\/|MicroMessenger|TikTok|Snapchat|; wv\)/i.test(ua)) return;
       const el = $('#inapp-warning');
       const android = /Android/i.test(ua);
-      const intent = `intent://${location.host}${location.pathname}${location.search}#Intent;scheme=https;package=com.android.chrome;end`;
+      const u = new URL(this.resumeUrl());
+      const intent = `intent://${u.host}${u.pathname}${u.search}#Intent;scheme=https;package=com.android.chrome;end`;
       el.innerHTML = html`
         <div class="inapp-title">${icon('alert')} Энэ хөтчөөс Google-ээр нэвтрэх боломжгүй</div>
         <p>Facebook, Messenger зэрэг апп доторх хөтчийг Google хориглодог. Chrome эсвэл Safari-гаар нээнэ үү.</p>
@@ -3988,7 +4020,7 @@
       else Game.loadDaily(true);
     },
     reload: () => location.reload(),
-    'copy-url': () => copyText(location.href, 'Холбоос хуулагдлаа — хөтөчдөө буулгаарай'),
+    'copy-url': () => copyText(Landing.resumeUrl(), 'Холбоос хуулагдлаа — хөтөчдөө буулгаарай'),
     'join-tournament': (b) => Pages.tournament.join(Number(b.dataset.fee)),
     'buy-premium': () => Pages.premium.buy(),
     'topup-submit': (b) => Pages.topup.submit(Number(b.dataset.id)),
@@ -4258,6 +4290,12 @@
     if ('ResizeObserver' in window) new ResizeObserver(() => Board.fit()).observe(wrap);
     addEventListener('resize', () => Board.fit());
 
+    // Нэвтрээгүй үед апп доторх холбоос руу очвол нэвтрэх хэсэг рүү чиглүүлнэ
+    addEventListener('hashchange', () => {
+      if (App.user || $('#landing').hidden || !/^#\//.test(location.hash)) return;
+      if (Landing.routeNote()) $('#login').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
     // Сүлжээ
     const bar = $('#offline-bar');
     addEventListener('offline', () => { bar.hidden = false; });
@@ -4283,11 +4321,14 @@
   const captureReferral = () => {
     const p = new URLSearchParams(location.search);
     const ref = (p.get('ref') || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 16);
-    if (ref) {
-      store.set('ref', ref);
+    // ?go=g/duel/КОД — апп доторх хөтчөөс Chrome руу шилжихэд hash алдагддаг тул query-гоор дамжина
+    const go = (p.get('go') || '').replace(/[^A-Za-z0-9/_-]/g, '').slice(0, 80);
+    if (ref) store.set('ref', ref);
+    if (ref || p.has('go')) {
       p.delete('ref');
+      p.delete('go');
       const qs = p.toString();
-      history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+      history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + (go && !location.hash ? '#/' + go : location.hash));
     }
   };
 

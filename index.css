@@ -526,6 +526,7 @@ main { outline: none; }
 .gsi-slot.loading { opacity: .5; pointer-events: none; }
 .gsi-fallback, .fine { font-size: 12.5px; color: var(--text-3); }
 .ref-note { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--good); }
+.route-note { color: var(--text); text-align: center; }
 .inapp-warning { width: 100%; text-align: left; padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--warn) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); font-size: 13.5px; color: var(--text-2); display: grid; gap: 8px; }
 .inapp-title { display: flex; gap: 8px; align-items: center; font-weight: 700; color: var(--text); }
 .inapp-title .i { color: var(--warn); }

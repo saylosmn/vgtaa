@@ -15,18 +15,25 @@
   <meta property="og:type" content="website">
   <meta property="og:title" content="Үг Таа — Өдөр бүр шинэ монгол үг">
   <meta property="og:description" content="Нууц үгийг 5 оролдлогоор тааж, мөнгөн шагнал ав. Найзуудтайгаа өрсөлд!">
-  <meta property="og:url" content="https://vgtaa.fwh.is/">
-  <meta property="og:image" content="https://vgtaa.fwh.is/icons/og.png">
+  <meta property="og:url" content="https://vgtaa.vercel.app/">
+  <meta property="og:image" content="https://vgtaa.vercel.app/icons/og.png">
+  <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
+  <meta property="og:site_name" content="Үг Таа">
+  <meta property="og:locale" content="mn_MN">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Үг Таа — Өдөр бүр шинэ монгол үг">
+  <meta name="twitter:description" content="Нууц үгийг 5 оролдлогоор тааж, мөнгөн шагнал ав. Найзуудтайгаа өрсөлд!">
+  <meta name="twitter:image" content="https://vgtaa.vercel.app/icons/og.png">
+  <link rel="canonical" href="https://vgtaa.vercel.app/">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400..800&display=swap">
-  <link rel="stylesheet" href="index.css?v=7.5.0">
+  <link rel="stylesheet" href="index.css?v=7.5.1">
   <script>(function(){try{var p=JSON.parse(localStorage.getItem('ugtaa:prefs')||'{}'),d=document.documentElement;if(p.theme==='dark'||p.theme==='light')d.setAttribute('data-theme',p.theme);if(p.contrast)d.setAttribute('data-contrast','high');}catch(e){}})();</script>
 </head>
 <body>
@@ -57,6 +64,7 @@
       <div class="login-card" id="login">
         <div class="inapp-warning" id="inapp-warning" hidden></div>
         <div class="ref-note" id="ref-note" hidden></div>
+        <div class="ref-note route-note" id="route-note" role="status" hidden></div>
         <div class="gsi-slot" id="gsi-btn" data-gsi></div>
         <p class="gsi-fallback" id="gsi-fallback" hidden>Google нэвтрэлт ачаалагдсангүй. Интернэтээ шалгаад <button type="button" class="link-btn" data-action="reload">дахин ачаалах</button>.</p>
         <p class="fine">Үргэлжлүүлснээр та тоглоомын дүрмийг зөвшөөрч байна. Бид таны нэр, имэйл, зургийг л ашиглана.</p>
@@ -168,6 +176,6 @@
   <noscript><div class="noscript">Үг Таа тоглохын тулд хөтчийнхөө JavaScript-ийг идэвхжүүлнэ үү.</div></noscript>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="index.js?v=7.5.0" defer></script>
+  <script src="index.js?v=7.5.1" defer></script>
 </body>
 </html>
