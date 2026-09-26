@@ -20,7 +20,7 @@
  */
 declare(strict_types=1);
 
-const APP_VERSION = '7.4.2';
+const APP_VERSION = '7.4.3';
 
 define('VGTAA', true);
 require __DIR__ . '/config.php';
@@ -210,7 +210,15 @@ function auto_migrate(bool $force = false): bool
 {
     require_once __DIR__ . '/migrate.php';
     // Саяхан амжилтгүй болсон бол минут бүрт л дахин оролдоно (live хүсэлт бүрт DDL ажиллуулж DB-г дарамтлахгүй)
-    if (!$force && (int)(kv_get('migrate_fail_at') ?? 0) > time() - 60) return false;
+    if (!$force) {
+        $failAt = (int)(kv_get('migrate_fail_at') ?? 0);
+        if (!$failAt) {   // app_kv байхгүй үед түр файлаас
+            $f = @file_get_contents(migrate_tmpfile());
+            $j = is_string($f) ? json_decode($f, true) : null;
+            if (is_array($j) && empty($j['ok'])) $failAt = (int)($j['at'] ?? 0);
+        }
+        if ($failAt > time() - 60) return false;
+    }
     $pdo = db();
     if ($pdo->inTransaction()) $pdo->rollBack();
     try {
@@ -244,13 +252,26 @@ function auto_migrate(bool $force = false): bool
         kv_set('migrate_fail_at', (string)time());
         kv_set('migrate_problems', (string)json_encode(array_slice($problems, 0, 10), JSON_UNESCAPED_UNICODE));
     }
+    // app_kv хүснэгт өөрөө үүсээгүй үед ч оношлох боломжтой байхаар түр файлд хадгална
+    @file_put_contents(migrate_tmpfile(), (string)json_encode(['at' => time(), 'ok' => $ok, 'problems' => array_slice($problems, 0, 10)], JSON_UNESCAPED_UNICODE));
     return $ok;
+}
+
+/** Шинэчлэлтийн төлвийн түр файл — өгөгдлийн сан бүрт тусдаа */
+function migrate_tmpfile(): string
+{
+    return sys_get_temp_dir() . '/vgtaa-migrate-' . substr(md5(DB_HOST . ':' . DB_PORT . '/' . DB_NAME), 0, 10) . '.json';
 }
 
 /** Сүүлийн амжилтгүй шинэчлэлтийн алдаанууд (оношлоход) */
 function migrate_problems(int $limit = 3): array
 {
     $d = json_decode((string)(kv_get('migrate_problems') ?? ''), true);
+    if (!is_array($d) || !$d) {
+        $f = @file_get_contents(migrate_tmpfile());
+        $j = is_string($f) ? json_decode($f, true) : null;
+        $d = is_array($j) && empty($j['ok']) ? ($j['problems'] ?? []) : [];
+    }
     // DB хэрэглэгчийн нэр/хостыг нууна
     $clean = fn($x): string => mb_substr((string)preg_replace("/'[^']*'@'[^']*'/", "'***'", (string)$x), 0, 240);
     return is_array($d) ? array_map($clean, array_slice($d, 0, $limit)) : [];
@@ -1645,7 +1666,12 @@ function a_ping(): never
     if ($dbOk) {
         try {
             $ver = kv_get('schema_version');
-            $schema = ['version' => $ver, 'ok' => $ver === APP_VERSION, 'problems' => migrate_problems(5)];
+            $schema = [
+                'version'  => $ver,
+                'ok'       => $ver === APP_VERSION,
+                'tables'   => (int)val("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()"),
+                'problems' => migrate_problems(5),
+            ];
         } catch (Throwable) {
         }
     }

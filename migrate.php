@@ -8,32 +8,46 @@
  */
 if (!defined('VGTAA')) { http_response_code(403); exit; }
 
+/*
+ * information_schema-г нэг удаа бөөнөөр уншиж санана. TiDB мэт гадны сан дээр
+ * information_schema-ийн асуулт бүр удаан (100мс+) тул хүснэгт/багана бүрээр асуувал
+ * шинэчлэлт 15+ секунд үргэлжилдэг байсан. DDL ажилласны дараа санг шинэчилнэ.
+ */
+function mg_info(PDO $pdo, bool $reset = false): array
+{
+    static $info = null;
+    if ($reset) { $info = null; return []; }
+    if ($info !== null) return $info;
+    $info = ['tables' => [], 'cols' => [], 'idx' => []];
+    foreach ($pdo->query("SELECT LOWER(TABLE_NAME) AS t FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()")->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $info['tables'][$r['t']] = true;
+    }
+    foreach ($pdo->query("SELECT LOWER(TABLE_NAME) AS t, LOWER(COLUMN_NAME) AS c, DATA_TYPE, COLUMN_TYPE, COLLATION_NAME, IS_NULLABLE
+                          FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE()")->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $info['cols'][$r['t']][$r['c']] = $r;
+    }
+    foreach ($pdo->query("SELECT LOWER(TABLE_NAME) AS t, INDEX_NAME, NON_UNIQUE, LOWER(COLUMN_NAME) AS c, SEQ_IN_INDEX
+                          FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX")->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $info['idx'][$r['t']][$r['INDEX_NAME']]['unique'] = (int)$r['NON_UNIQUE'] === 0;
+        $info['idx'][$r['t']][$r['INDEX_NAME']]['cols'][] = (string)$r['c'];
+    }
+    return $info;
+}
+
 function mg_table_exists(PDO $pdo, string $t): bool
 {
-    $st = $pdo->prepare("SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?");
-    $st->execute([$t]);
-    return (bool)$st->fetchColumn();
+    return isset(mg_info($pdo)['tables'][strtolower($t)]);
 }
 
 function mg_column_info(PDO $pdo, string $t, string $c): ?array
 {
-    $st = $pdo->prepare("SELECT DATA_TYPE, COLUMN_TYPE, COLLATION_NAME, IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?");
-    $st->execute([$t, $c]);
-    $r = $st->fetch(PDO::FETCH_ASSOC);
-    return $r ?: null;
+    return mg_info($pdo)['cols'][strtolower($t)][strtolower($c)] ?? null;
 }
 
 /** Тухайн баганууд дээр индекс байгаа эсэх (нэрээс үл хамааран) */
 function mg_has_index(PDO $pdo, string $t, array $cols, bool $unique): bool
 {
-    $st = $pdo->prepare("SELECT INDEX_NAME, NON_UNIQUE, COLUMN_NAME, SEQ_IN_INDEX FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? ORDER BY INDEX_NAME, SEQ_IN_INDEX");
-    $st->execute([$t]);
-    $idx = [];
-    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
-        $idx[$r['INDEX_NAME']]['unique'] = (int)$r['NON_UNIQUE'] === 0;
-        $idx[$r['INDEX_NAME']]['cols'][] = strtolower((string)$r['COLUMN_NAME']);
-    }
-    foreach ($idx as $i) {
+    foreach (mg_info($pdo)['idx'][strtolower($t)] ?? [] as $i) {
         if ($unique && !$i['unique']) continue;
         if ($unique ? $i['cols'] === $cols : array_slice($i['cols'], 0, count($cols)) === $cols) return true;
     }
@@ -167,6 +181,7 @@ const MG_TABLES = ['users', 'words', 'daily_words', 'game_sessions', 'archive_se
 /** Дутуу байгаа хүснэгт/баганын жагсаалт (хоосон бол бүтэц бүрэн) */
 function mg_missing(PDO $pdo): array
 {
+    mg_info($pdo, true);
     $missing = [];
     $cols = mg_columns();
     foreach (MG_TABLES as $t) {
@@ -182,9 +197,11 @@ function mg_missing(PDO $pdo): array
  */
 function vgtaa_migrate(PDO $pdo, callable $say): bool
 {
+    mg_info($pdo, true);
     $run = function (string $sql, string $okMsg, string $failMsg = '') use ($pdo, $say): bool {
         try {
             $pdo->exec($sql);
+            mg_info($pdo, true);
             $say('ok', $okMsg);
             return true;
         } catch (PDOException $e) {
@@ -201,10 +218,11 @@ function vgtaa_migrate(PDO $pdo, callable $say): bool
         $schema = preg_replace('/^\s*--.*$/m', '', $schema) ?? '';
         foreach (array_filter(array_map('trim', explode(';', $schema))) as $stmt) {
             if (!preg_match('/CREATE TABLE IF NOT EXISTS\s+`?(\w+)`?/i', $stmt, $m)) continue;
-            $existed = mg_table_exists($pdo, $m[1]);
+            if (mg_table_exists($pdo, $m[1])) continue;   // Байгаа хүснэгтэд DDL илгээхгүй (хурд)
             try {
                 $pdo->exec($stmt);
-                if (!$existed) $say('ok', "Хүснэгт үүслээ: {$m[1]}");
+                mg_info($pdo, true);
+                $say('ok', "Хүснэгт үүслээ: {$m[1]}");
             } catch (PDOException $e) {
                 $say('err', "Хүснэгт {$m[1]}: " . $e->getMessage());
             }
