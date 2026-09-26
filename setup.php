@@ -133,7 +133,14 @@ if ($method !== 'POST') {
 }
 
 /* ── 1–4. Хүснэгт, багана, төрөл, индекс (migrate.php) ────── */
-vgtaa_migrate($pdo, 'say');
+if (vgtaa_migrate($pdo, 'say')) {
+    // Амжилттай бол автомат шинэчлэлтийн алдааны тэмдгийг арилгана (api.php дахин оролдохгүй)
+    try {
+        $st = $pdo->prepare("INSERT INTO app_kv (k, v, expires_at) VALUES (?, ?, 0) ON DUPLICATE KEY UPDATE v = VALUES(v), expires_at = 0");
+        foreach (['migrate_fail_at' => '0', 'migrate_problems' => ''] as $k => $v) $st->execute([$k, $v]);
+    } catch (PDOException) {
+    }
+}
 
 /* ── 5. Өгөгдөл засвар ────────────────────────────────────── */
 try {

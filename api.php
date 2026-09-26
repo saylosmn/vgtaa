@@ -20,7 +20,7 @@
  */
 declare(strict_types=1);
 
-const APP_VERSION = '7.4.0';
+const APP_VERSION = '7.4.1';
 
 define('VGTAA', true);
 require __DIR__ . '/config.php';
@@ -206,9 +206,11 @@ function tx(callable $fn): mixed
  * Шинэ хувилбар анх ачаалагдахад эсвэл дутуу хүснэгт/багана илэрвэл дуудагдана —
  * setup.php-г гараар ажиллуулах шаардлагагүй. Олон хүсэлт зэрэг ирвэл түгжээгээр дараалуулна.
  */
-function auto_migrate(): bool
+function auto_migrate(bool $force = false): bool
 {
     require_once __DIR__ . '/migrate.php';
+    // Саяхан амжилтгүй болсон бол минут бүрт л дахин оролдоно (live хүсэлт бүрт DDL ажиллуулж DB-г дарамтлахгүй)
+    if (!$force && (int)(kv_get('migrate_fail_at') ?? 0) > time() - 60) return false;
     $pdo = db();
     if ($pdo->inTransaction()) $pdo->rollBack();
     try {
@@ -223,6 +225,10 @@ function auto_migrate(): bool
         };
         $ok = vgtaa_migrate($pdo, $say);
         if ($ok) mg_seed_if_empty($pdo, $say);   // Шинэ сервер: үгийн сан хоосон бол эхлэлийн үгс
+        else $problems[] = 'Дутуу хэвээр: ' . implode(', ', array_slice(mg_missing($pdo), 0, 12));
+    } catch (Throwable $e) {
+        $ok = false;
+        $problems[] = get_class($e) . ': ' . $e->getMessage();
     } finally {
         try {
             $pdo->query("SELECT RELEASE_LOCK('vgtaa_migrate')")->fetchColumn();
@@ -230,8 +236,24 @@ function auto_migrate(): bool
         }
     }
     if ($problems) error_log('[vgtaa] auto-migrate: ' . implode(' | ', $problems));
-    if ($ok) kv_set('schema_version', APP_VERSION);
+    if ($ok) {
+        kv_set('schema_version', APP_VERSION);
+        kv_set('migrate_fail_at', '0');
+        kv_set('migrate_problems', '');
+    } else {
+        kv_set('migrate_fail_at', (string)time());
+        kv_set('migrate_problems', (string)json_encode(array_slice($problems, 0, 10), JSON_UNESCAPED_UNICODE));
+    }
     return $ok;
+}
+
+/** Сүүлийн амжилтгүй шинэчлэлтийн алдаанууд (оношлоход) */
+function migrate_problems(int $limit = 3): array
+{
+    $d = json_decode((string)(kv_get('migrate_problems') ?? ''), true);
+    // DB хэрэглэгчийн нэр/хостыг нууна
+    $clean = fn($x): string => mb_substr((string)preg_replace("/'[^']*'@'[^']*'/", "'***'", (string)$x), 0, 240);
+    return is_array($d) ? array_map($clean, array_slice($d, 0, $limit)) : [];
 }
 
 function kv_get(string $k): ?string
@@ -3704,11 +3726,11 @@ function live_try(callable $fn, mixed $fallback = null): mixed
 /** Бүх хэрэглэгчид нийтлэг хэсэг: өдрийн тоглолт, арена, дуэль, тэмцээн, оноо */
 function live_global(string $today): array
 {
-    $d = row(
+    $d = live_try(fn() => row(
         "SELECT COUNT(*) AS p, COALESCE(SUM(is_won), 0) AS w, COALESCE(SUM(is_completed), 0) AS c
          FROM game_sessions WHERE game_date = ? AND attempts_count > 0",
         [$today]
-    );
+    ));
     $arena = live_try(function () use ($today): array {
         $a = row(
             "SELECT COUNT(DISTINCT user_id) AS n, COALESCE(SUM(fee_paid), 0) AS fees, COALESCE(MAX(score), 0) AS top, COUNT(*) AS runs
@@ -3721,7 +3743,7 @@ function live_global(string $today): array
         $x = row("SELECT COUNT(*) AS n, COALESCE(MAX(id), 0) AS last FROM duels WHERE status = 'open'");
         return ['open' => (int)$x['n'], 'last' => (int)$x['last']];
     });
-    $t = row("SELECT status, participant_count, prize_pool FROM tournaments WHERE tournament_date = ? LIMIT 1", [$today]);
+    $t = live_try(fn() => row("SELECT status, participant_count, prize_pool FROM tournaments WHERE tournament_date = ? LIMIT 1", [$today]));
     return [
         'daily' => ['players' => (int)($d['p'] ?? 0), 'winners' => (int)($d['w'] ?? 0), 'done' => (int)($d['c'] ?? 0)],
         'arena' => $arena,
@@ -4457,6 +4479,8 @@ function a_admin_health(): never
         $add('Telegram товч', 'Автомат шалгалт (сайтад хандалт орох бүрт ' . TG_POLL_EVERY . ' сек тутам)', true);
     }
     $add('Мэдээллийн сангийн бүтэц', $missing ? 'Дутуу: ' . implode(', ', array_slice($missing, 0, 12)) . ' → setup.php ажиллуул' : 'Бүрэн', !$missing);
+    $mp = migrate_problems(5);
+    $add('Автомат шинэчлэлт', (kv_get('schema_version') ?? '—') . ($mp ? ' · Алдаа: ' . implode(' | ', $mp) : ''), !$mp);
     ok(['checks' => $checks]);
 }
 
@@ -4556,7 +4580,8 @@ try {
         if ($migrated) {
             respond(['success' => false, 'message' => 'Сайт шинэчлэгдлээ. Дахин оролдоно уу.', 'code' => 'schema_migrated'], 503);
         }
-        respond(['success' => false, 'message' => 'Мэдээллийн сангийн шинэчлэлт амжилтгүй боллоо. Админ setup.php-г ажиллуулна уу.', 'code' => 'schema_outdated'], 503);
+        respond(['success' => false, 'message' => 'Мэдээллийн сангийн шинэчлэлт амжилтгүй боллоо. Админ setup.php-г ажиллуулна уу.',
+                 'code' => 'schema_outdated', 'detail' => migrate_problems()], 503);
     }
     respond(['success' => false, 'message' => 'Серверийн алдаа гарлаа. Дараа дахин оролдоно уу.'], 500);
 } catch (Throwable $e) {
