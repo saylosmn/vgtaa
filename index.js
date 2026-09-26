@@ -16,7 +16,7 @@
 'use strict';
 
 (() => {
-  const VERSION = '7.2.0';
+  const VERSION = '7.3.0';
 
   /* ============================================================
      1. ТУСЛАХ ФУНКЦУУД
@@ -541,6 +541,7 @@
       $('#app').hidden = false;
       document.body.classList.add('in-app');
       Router.start();
+      Live.start();
     },
   };
 
@@ -608,6 +609,8 @@
     },
 
     clear(silent = false) {
+      Live.since = 0;
+      Live.last = null;
       Api.token = null;
       store.del('token');
       App.user = null;
@@ -628,16 +631,24 @@
     demoTimer: null,
     running: false,
 
+    renderLive() {
+      const live = $('#hero-live');
+      if (!live) return;
+      const t = App.publicToday;
+      if (t && t.players > 0) {
+        live.innerHTML = html`<span class="pulse-dot"></span> Өнөөдөр <b>${fmt(t.players)}</b> хүн тоглож, <b>${fmt(t.winners)}</b> нь таасан`;
+        live.hidden = false;
+      } else {
+        live.hidden = true;
+      }
+    },
+
     show() {
       $('#landing').hidden = false;
       const c = App.config;
       $('#step-reward').textContent = '+' + money(c.reward_amount);
       $('#hero-sub').textContent = `Нууц монгол үгийг ${c.max_attempts} оролдлогоор таа. Зөв таавал ${money(c.reward_amount)} шагнал шууд хэтэвчинд орно.`;
-      const live = $('#hero-live');
-      if (App.publicToday && App.publicToday.players > 0) {
-        live.innerHTML = html`<span class="pulse-dot"></span> Өнөөдөр <b>${fmt(App.publicToday.players)}</b> хүн тоглож, <b>${fmt(App.publicToday.winners)}</b> нь таасан`;
-        live.hidden = false;
-      }
+      this.renderLive();
       const ref = store.get('ref');
       if (ref) {
         $('#ref-note').innerHTML = html`${icon('gift')} Урилгын код <b>${ref}</b> хадгалагдлаа`;
@@ -1474,9 +1485,10 @@
       this.load();
     },
 
-    async load() {
+    async load(silent = false) {
       const body = $('#lb-body');
-      body.innerHTML = String(skeleton(6));
+      if (!body) return;
+      if (!silent) body.innerHTML = String(skeleton(6));
       try {
         const r = await Api.get('leaderboard', { period: this.period });
         const L = r.leaders;
@@ -2354,6 +2366,7 @@
     async openDuel(code = null) {
       this.stop();
       this.mode = 'duel';
+      this.lastDuel = null;
       this.run = null;
       const el = this.el();
       el.innerHTML = html`${miniHead('duel')}${skeleton(4)}`;
@@ -2421,7 +2434,7 @@
       </div>`;
     },
 
-    duelLobby(last = null) {
+    duelLobby(last = this.lastDuel) {
       const r = this.duels, c = App.config;
       const prize = (s) => s * 2 - Math.floor(s * 2 * (r.rake || 0) / 100);
       this.el().innerHTML = html`${miniHead('duel', r.stats.played ? html`<span class="chip"><span><b>${r.stats.won}</b>/${r.stats.played} ялалт</span></span>` : '')}
@@ -2524,12 +2537,44 @@
     pickStake(s) {
       if (!this.duels || this.mode !== 'duel' || this.run) return;
       this.stake = s;
-      this.duelLobby();
+      this.duelLobby(this.lastDuel);
+    },
+
+    lastResult: null,
+    lastDuel: null,
+
+    async refreshArena() {
+      try {
+        const r = await Api.get('blitz');
+        if (Router.current !== 'g' || Mini.game !== 'blitz' || this.mode !== 'arena' || this.run || r.run) return;
+        this.arena = r.arena;
+        this.allow = r.allowance;
+        this.lobby(this.lastResult);
+      } catch { /* дараагийн удаа */ }
+    },
+
+    async refreshDuel() {
+      try {
+        const r = await Api.get('duels');
+        if (Router.current !== 'g' || Mini.game !== 'blitz' || this.mode !== 'duel' || this.run || r.run) return;
+        if (!$('.duel-new')) return;   // Урилгын хуудсыг хөндөхгүй
+        this.duels = r;
+        App.setBalance(r.balance);
+        if (this.lastDuel && this.lastDuel.duel) {
+          const fresh = r.mine.find((d) => d.code === this.lastDuel.duel.code);
+          if (fresh) {
+            if (fresh.status === 'done' && this.lastDuel.duel.status !== 'done' && fresh.result === 'won') setTimeout(() => Confetti.burst(), 200);
+            this.lastDuel.duel = fresh;
+          }
+        }
+        this.duelLobby(this.lastDuel);
+      } catch { /* дараагийн удаа */ }
     },
 
     async open() {
       this.stop();
       this.mode = 'arena';
+      this.lastResult = null;
       this.run = null;
       const el = this.el();
       el.innerHTML = html`${miniHead('blitz')}${skeleton(4)}`;
@@ -2723,7 +2768,9 @@
         if (this.mode === 'duel') {
           if (Router.current === 'g' && Mini.game === 'blitz') {
             try { this.duels = await Api.get('duels'); App.setBalance(this.duels.balance); } catch { /* өмнөх жагсаалтаар харуулна */ }
-            this.duelLobby({ run: r.run, duel: r.duel || this.pendingDuel });
+            this.lastDuel = { run: r.run, duel: r.duel || this.pendingDuel };
+            this.duelLobby(this.lastDuel);
+            Live.soon(1500);
             window.scrollTo(0, 0);
             if (r.duel && r.duel.result === 'won') setTimeout(() => Confetti.burst(), 200);
           }
@@ -2731,6 +2778,7 @@
           return;
         }
         if (Router.current === 'g' && Mini.game === 'blitz') {
+          this.lastResult = r.run;
           this.lobby(r.run);
           if (r.run.solved > 0) setTimeout(() => Confetti.burst(), 200);
         }
@@ -3727,6 +3775,157 @@
   };
 
   /* ============================================================
+     БОДИТ ЦАГ — нэг хөнгөн хүсэлтээр бүх өөрчлөлтийг шалгана.
+     Юу өөрчлөгдсөнийг «гарын үсэг»-ээр харьцуулж, зөвхөн тухайн хуудсыг
+     чимээгүй шинэчилнэ. Таб нуугдвал зогсож, идэвхгүй бол удааширна.
+     ============================================================ */
+  const LIVE_TOAST = {
+    topup: '💰 Хэтэвч цэнэглэгдлээ', deposit: '💰 Хэтэвч цэнэглэгдлээ', duel_win: '⚔️ Дуэль ялсан!', duel_refund: '⚔️ Дуэль',
+    blitz_prize: '🏆 Blitz шагнал', blitz_refund: '↩️ Blitz хураамж буцаав', tournament_prize: '🏆 Тэмцээний шагнал',
+    tournament_refund: '↩️ Тэмцээний хураамж буцаав', referral: '👥 Урилгын урамшуулал', admin_adjust: '🛡️ Админ засвар',
+    withdrawal_refund: '↩️ Таталт буцаав',
+  };
+
+  /** Хуудсыг чимээгүй дахин зурахад аюулгүй эсэх — хэрэглэгч бичиж байхад хөндөхгүй */
+  const safeToRefresh = (el) => {
+    if (!el || el.hidden || Modal.stack.length) return false;
+    const a = document.activeElement;
+    if (a && el.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return false;
+    return !$$('input:not([type=checkbox]):not([type=hidden]), textarea', el).some((i) => i.value !== i.defaultValue);
+  };
+
+  const Live = {
+    timer: null,
+    since: 0,
+    last: null,
+    interval: 5000,
+    lastInput: Date.now(),
+    busy: false,
+    started: false,
+    lastHub: 0,
+
+    start() {
+      if (this.started) { this.poll(); return; }
+      this.started = true;
+      const touch = () => { const idle = this.idle(); this.lastInput = Date.now(); if (idle) this.poll(); };
+      ['pointerdown', 'keydown', 'scroll'].forEach((ev) => addEventListener(ev, touch, { passive: true }));
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) this.poll(); else clearTimeout(this.timer); });
+      addEventListener('online', () => this.poll());
+      this.poll();
+    },
+
+    idle() { return Date.now() - this.lastInput > 5 * 60 * 1000; },
+
+    schedule() {
+      clearTimeout(this.timer);
+      if (document.hidden) return;
+      this.timer = setTimeout(() => this.poll(), this.idle() ? 60000 : this.interval);
+    },
+
+    /** Үйлдэл хийсний дараа шууд шалгуулах (жишээ нь дуэль үүсгэсний дараа) */
+    soon(ms = 800) { clearTimeout(this.timer); this.timer = setTimeout(() => this.poll(), ms); },
+
+    async poll() {
+      if (this.busy) return;
+      this.busy = true;
+      try {
+        const r = await Api.get('live', this.since ? { since: this.since } : null);
+        this.apply(r);
+      } catch {
+        // Сүлжээний алдаа — дараагийн удаа дахин оролдоно
+      } finally {
+        this.busy = false;
+        this.schedule();
+      }
+    },
+
+    apply(r) {
+      this.interval = clamp((r.interval || 5) * 1000, 2000, 60000);
+      Clock.sync(r.time);
+      const prev = this.last;
+      const g = r.g || {};
+
+      // Нүүр хуудас (нэвтрээгүй)
+      App.publicToday = { players: g.daily ? g.daily.players : 0, winners: g.daily ? g.daily.winners : 0 };
+      if (!App.user) { Landing.renderLive(); this.last = { g }; return; }
+
+      // Хэрэглэгч: үлдэгдэл, Premium
+      if (r.user && App.user) {
+        if (r.user.balance !== App.user.balance) App.setBalance(r.user.balance);
+        if (r.user.is_premium !== App.user.is_premium || r.user.is_admin !== App.user.is_admin) App.patchUser(r.user);
+      }
+
+      // Гүйлгээний мэдэгдэл
+      if (this.since && r.events) {
+        for (const e of r.events) {
+          const t = LIVE_TOAST[e.type];
+          if (t && e.amount !== 0) Toast.show(`${t} ${signedMoney(e.amount)}`, e.amount > 0 ? 'success' : 'info', 5000);
+        }
+      }
+      if (r.tx != null) this.since = r.tx;
+
+      const me = r.me || {};
+      const pm = prev && prev.me ? prev.me : null;
+      if (pm) {
+        const d = me.duel, pd = pm.duel;
+        if (d && pd && d.id === pd.id && d.status !== pd.status) {
+          if (d.status === 'active' && d.mine) Toast.show(`⚔️ Таны ${money(d.stake)}-ийн дуэлийг хүлээж авлаа! Үр дүн удахгүй.`, 'info', 5000);
+          if (d.status === 'done' && d.result === 'lost') Toast.show('⚔️ Дуэль: энэ удаа ялагдлаа. Дахин сорь!', 'info', 5000);
+        }
+        if (me.wd && pm.wd && me.wd.id === pm.wd.id && me.wd.status !== pm.wd.status && me.wd.status === 'approved') {
+          Toast.show(`✅ Таны ${money(me.wd.amount)} данс руу шилжүүлэгдлээ`, 'success', 6000);
+        }
+      }
+      const adm = r.admin, pa = prev && prev.admin;
+      if (adm && pa) {
+        if (adm.last_dep > pa.last_dep && adm.deposits > pa.deposits) Toast.show(`🔔 Шинэ цэнэглэлтийн хүсэлт (${adm.deposits} хүлээгдэж байна)`, 'info', 6000);
+        if (adm.last_wd > pa.last_wd && adm.withdrawals > pa.withdrawals) Toast.show(`🔔 Шинэ таталтын хүсэлт (${adm.withdrawals} хүлээгдэж байна)`, 'info', 6000);
+      }
+      const profileTab = $('.tabbar .tab[data-tab="profile"]');
+      if (profileTab) profileTab.classList.toggle('has-dot', !!(adm && (adm.deposits || adm.withdrawals)));
+
+      this.last = { g, me, admin: adm };
+      if (!prev) return;
+
+      // Юу өөрчлөгдсөн бэ
+      const ch = (a, b) => JSON.stringify(a) !== JSON.stringify(b);
+      const changed = {
+        daily: ch(g.daily, prev.g.daily),
+        arena: ch(g.arena, prev.g.arena),
+        duels: ch(g.duels, prev.g.duels) || ch(me.duel, pm && pm.duel),
+        tour: ch(g.tour, prev.g.tour) || ch(g.daily, prev.g.daily),
+        board: ch(g.board, prev.g.board),
+        money: ch(me.wd, pm && pm.wd) || ch(me.dep, pm && pm.dep) || !!(r.events && r.events.length),
+        admin: ch(adm, pa),
+      };
+      this.refreshPages(changed);
+    },
+
+    refreshPages(c) {
+      const page = Router.current;
+      if (page === 'games' && (c.arena || c.duels || c.daily || (c.board && Date.now() - this.lastHub > 15000))) {
+        if (safeToRefresh($('#page-games'))) { this.lastHub = Date.now(); Pages.games.show(); }
+      }
+      if (page === 'g' && Mini.game === 'blitz' && !Blitz.run && !Blitz.busy && safeToRefresh($('#page-g'))) {
+        if (Blitz.mode === 'duel' && c.duels) Blitz.refreshDuel();
+        if (Blitz.mode === 'arena' && c.arena) Blitz.refreshArena();
+      }
+      if (page === 'tournament' && c.tour && safeToRefresh($('#page-tournament'))) Pages.tournament.show();
+      if (page === 'leaders' && c.daily && safeToRefresh($('#page-leaders'))) Pages.leaders.load(true);
+      if (page === 'wallet' && c.money && safeToRefresh($('#page-wallet'))) Pages.wallet.show();
+      if (page === 'topup' && c.money && safeToRefresh($('#page-topup'))) Pages.topup.show();
+      if (page === 'admin' && c.admin && ['overview', 'deposits', 'withdrawals'].includes(Pages.admin.tab) && safeToRefresh($('#page-admin'))) {
+        Pages.admin[Pages.admin.tab]();
+      }
+      if (page === 'play' && c.tour && Game.mode === 'daily' && Game.tournament && this.last.g.tour) {
+        Game.tournament.prize_pool = this.last.g.tour.pool;
+        Game.tournament.participants = this.last.g.tour.n;
+        Game.renderBanner();
+      }
+    },
+  };
+
+  /* ============================================================
      8. ҮЙЛ ЯВДЛЫН ХОЛБОЛТ, ЭХЛҮҮЛЭХ
      ============================================================ */
   const actions = {
@@ -4090,6 +4289,7 @@
       Landing.show();
     }
 
+    Live.start();
     const splash = $('#splash');
     splash.classList.add('hide');
     setTimeout(() => splash.remove(), 400);

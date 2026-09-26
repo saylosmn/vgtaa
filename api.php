@@ -20,7 +20,7 @@
  */
 declare(strict_types=1);
 
-const APP_VERSION = '7.2.0';
+const APP_VERSION = '7.3.0';
 
 define('VGTAA', true);
 require __DIR__ . '/config.php';
@@ -3643,6 +3643,97 @@ function a_sponsor_click(): never
 }
 
 /* ============================================================
+   БОДИТ ЦАГ (live) — клиент хэдэн секунд тутам нэг хөнгөн хүсэлт илгээж,
+   юу өөрчлөгдсөнийг «гарын үсэг»-ээр мэдэж авна. WebSocket шаардахгүй тул
+   InfinityFree, Render, Vercel бүгд дээр ажиллана.
+   ============================================================ */
+function live_try(callable $fn, mixed $fallback = null): mixed
+{
+    try {
+        return $fn();
+    } catch (PDOException) {
+        return $fallback;   // setup.php ажиллаагүй бол тухайн хэсгийг алгасна
+    }
+}
+
+/** Бүх хэрэглэгчид нийтлэг хэсэг: өдрийн тоглолт, арена, дуэль, тэмцээн, оноо */
+function live_global(string $today): array
+{
+    $d = row(
+        "SELECT COUNT(*) AS p, COALESCE(SUM(is_won), 0) AS w, COALESCE(SUM(is_completed), 0) AS c
+         FROM game_sessions WHERE game_date = ? AND attempts_count > 0",
+        [$today]
+    );
+    $arena = live_try(function () use ($today): array {
+        $a = row(
+            "SELECT COUNT(DISTINCT user_id) AS n, COALESCE(SUM(fee_paid), 0) AS fees, COALESCE(MAX(score), 0) AS top, COUNT(*) AS runs
+             FROM blitz_runs WHERE run_date = ? AND ranked = 1",
+            [$today]
+        );
+        return ['n' => (int)$a['n'], 'pool' => blitz_pool((int)$a['fees']), 'top' => (int)$a['top'], 'runs' => (int)$a['runs']];
+    });
+    $duels = live_try(function (): array {
+        $x = row("SELECT COUNT(*) AS n, COALESCE(MAX(id), 0) AS last FROM duels WHERE status = 'open'");
+        return ['open' => (int)$x['n'], 'last' => (int)$x['last']];
+    });
+    $t = row("SELECT status, participant_count, prize_pool FROM tournaments WHERE tournament_date = ? LIMIT 1", [$today]);
+    return [
+        'daily' => ['players' => (int)($d['p'] ?? 0), 'winners' => (int)($d['w'] ?? 0), 'done' => (int)($d['c'] ?? 0)],
+        'arena' => $arena,
+        'duels' => $duels,
+        'tour'  => $t ? ['status' => (string)$t['status'], 'n' => (int)$t['participant_count'], 'pool' => (int)$t['prize_pool']] : null,
+        'board' => live_try(fn(): int => (int)val("SELECT COALESCE(MAX(id), 0) FROM mini_sessions WHERE is_completed = 1"), 0),
+    ];
+}
+
+function a_live(): never
+{
+    $u = auth_user();                         // Нэвтрээгүй (нүүр хуудас) ч ажиллана
+    if ($u && (int)($u['is_banned'] ?? 0) === 1) $u = null;
+    $today = today();
+    $out = ['interval' => LIVE_INTERVAL, 'time' => time_payload(), 'g' => live_global($today), 'user' => null];
+
+    if ($u) {
+        $uid = (int)$u['id'];
+        $since = max(0, (int)qs('since'));
+        $out['user'] = user_public($u);
+        $out['tx'] = (int)val("SELECT COALESCE(MAX(id), 0) FROM transactions WHERE user_id = ?", [$uid]);
+        // Сүүлд харсанаас хойшхи гүйлгээнүүд — «Дуэль ялсан +900₮» мэт мэдэгдэл
+        $out['events'] = $since > 0
+            ? rows("SELECT id, type, amount, description FROM transactions WHERE user_id = ? AND id > ? ORDER BY id ASC LIMIT 10", [$uid, $since])
+            : [];
+        $duel = live_try(fn() => row(
+            "SELECT id, code, status, creator_id, winner_id, stake, payout,
+                    GREATEST(created_at, COALESCE(accepted_at, created_at), COALESCE(settled_at, created_at)) AS at
+             FROM duels WHERE creator_id = ? OR opponent_id = ?
+             ORDER BY at DESC, id DESC LIMIT 1",
+            [$uid, $uid]
+        ));
+        $wd = row("SELECT id, status, amount FROM withdrawals WHERE user_id = ? ORDER BY COALESCE(processed_at, requested_at) DESC, id DESC LIMIT 1", [$uid]);
+        $dep = live_try(fn() => row("SELECT id, status, amount FROM deposits WHERE user_id = ? AND status <> 'created' ORDER BY COALESCE(processed_at, submitted_at) DESC, id DESC LIMIT 1", [$uid]));
+        $out['me'] = [
+            'duel' => $duel ? [
+                'id' => (int)$duel['id'], 'code' => (string)$duel['code'], 'status' => (string)$duel['status'],
+                'mine' => (int)$duel['creator_id'] === $uid, 'stake' => (int)$duel['stake'],
+                'result' => $duel['status'] === 'done' ? ($duel['winner_id'] === null ? 'tie' : ((int)$duel['winner_id'] === $uid ? 'won' : 'lost')) : null,
+            ] : null,
+            'wd'  => $wd ? ['id' => (int)$wd['id'], 'status' => (string)$wd['status'], 'amount' => (int)$wd['amount']] : null,
+            'dep' => $dep ? ['id' => (int)$dep['id'], 'status' => (string)$dep['status'], 'amount' => (int)$dep['amount']] : null,
+        ];
+        if ((int)($u['is_admin'] ?? 0) === 1) {
+            $out['admin'] = [
+                'deposits'    => (int)live_try(fn() => num("SELECT COUNT(*) FROM deposits WHERE status = 'submitted'"), 0),
+                'withdrawals' => num("SELECT COUNT(*) FROM withdrawals WHERE status = 'pending'"),
+                'last_dep'    => (int)live_try(fn() => (int)val("SELECT COALESCE(MAX(id), 0) FROM deposits WHERE status <> 'created'"), 0),
+                'last_wd'     => (int)val("SELECT COALESCE(MAX(id), 0) FROM withdrawals"),
+                'users'       => (int)val("SELECT COALESCE(MAX(id), 0) FROM users"),
+            ];
+        }
+    }
+    ok($out);
+}
+
+/* ============================================================
    HANDLERS — админ
    ============================================================ */
 function a_admin_overview(): never
@@ -4369,6 +4460,7 @@ $routes = [
     'duel_create'       => ['POST', 'a_duel_create'],
     'duel_accept'       => ['POST', 'a_duel_accept'],
     'sponsor_click'     => ['POST', 'a_sponsor_click'],
+    'live'              => ['GET',  'a_live'],
     // админ
     'admin_overview'    => ['GET',  'a_admin_overview'],
     'admin_users'       => ['GET',  'a_admin_users'],

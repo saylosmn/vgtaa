@@ -57,6 +57,10 @@ define('ALLOWED_ORIGINS', array_values(array_unique(array_filter(array_merge(
     array_map('trim', explode(',', $__env('EXTRA_ORIGINS')))   // Өөр домэйнээс API дуудах бол
 )))));
 define('TOKEN_TTL_DAYS', 30);
+/* Бодит цагийн шинэчлэлт: нээлттэй хуудас хэдэн секунд тутам өөрчлөлт шалгах вэ.
+ * InfinityFree өдрийн хандалтын хязгаартай тул удаан, Render/Vercel дээр хурдан.
+ * Хэрэглэгч 5 минут хөдөлгөөнгүй бол 60 секунд, таб нуугдвал бүр зогсоно. */
+define('LIVE_INTERVAL', max(2, (int)$__env('LIVE_INTERVAL', PLATFORM === 'shared' ? '12' : '4')));
 unset($__secret, $__env);
 
 /** MySQL холболтын DSN (api.php, setup.php хоёулаа ашиглана) */
