@@ -20,7 +20,7 @@
  */
 declare(strict_types=1);
 
-const APP_VERSION = '7.1.0';
+const APP_VERSION = '7.2.0';
 
 define('VGTAA', true);
 require __DIR__ . '/config.php';
@@ -678,6 +678,12 @@ function public_config(): array
         'blitz_split'        => BLITZ_SPLIT,
         'blitz_premium_free' => BLITZ_PREMIUM_FREE,
         'blitz_rake'         => BLITZ_RAKE,
+        'duel_stakes'        => DUEL_STAKES,
+        'duel_rake'          => DUEL_RAKE,
+        'duel_expire_hours'  => DUEL_EXPIRE_HOURS,
+        'revive_price'       => REVIVE_PRICE,
+        'premium_week_price' => PREMIUM_WEEK_PRICE,
+        'premium_week_days'  => PREMIUM_WEEK_DAYS,
         'require_valid_word' => REQUIRE_VALID_WORD,
         'banks'              => BANKS,
     ];
@@ -730,6 +736,13 @@ const SETTINGS_DEFAULTS = [
     'telegram_mode'          => 'poll', // poll = сайт өөрөө шалгана (InfinityFree) | webhook = Telegram шууд илгээнэ (Render)
     'telegram_webhook_secret' => '',
     'notify_withdrawals'     => true,
+    // Ивээн тэтгэгч (зарын байр)
+    'sponsor_enabled'        => false,
+    'sponsor_name'           => '',
+    'sponsor_text'           => '',
+    'sponsor_url'            => '',
+    'sponsor_image'          => '',
+    'sponsor_cta'            => 'Дэлгэрэнгүй',
 ];
 const TG_POLL_EVERY = 5; // секунд — «poll» горимд Telegram-ийг хэр олон шалгах
 
@@ -1545,10 +1558,17 @@ function a_config(): never
     } catch (Throwable) {
         // Нүүр хуудас DB-гүйгээр ч ачаалагдана
     }
+    $sponsor = null;
+    try {
+        $sponsor = sponsor_public();
+        if ($sponsor) kv_incr('sponsor:view:' . today());
+    } catch (Throwable) {
+    }
     ok([
-        'config' => public_config(),
-        'today'  => ['players' => $players, 'winners' => $winners],
-        'time'   => time_payload(),
+        'config'  => public_config(),
+        'today'   => ['players' => $players, 'winners' => $winners],
+        'time'    => time_payload(),
+        'sponsor' => $sponsor,
     ]);
 }
 
@@ -2196,13 +2216,17 @@ function a_referrals(): never
 function a_premium_buy(): never
 {
     $u = require_user();
-    $r = tx(function () use ($u): array {
+    // month = PREMIUM_PRICE / PREMIUM_DAYS, week = хямд богино хугацааны эрх
+    $week  = in_str('plan', 8) === 'week';
+    $price = $week ? PREMIUM_WEEK_PRICE : PREMIUM_PRICE;
+    $days  = $week ? PREMIUM_WEEK_DAYS : PREMIUM_DAYS;
+    $r = tx(function () use ($u, $price, $days): array {
         $me = row("SELECT * FROM users WHERE id = ? FOR UPDATE", [$u['id']]);
         $from = is_premium($me) && !empty($me['premium_expires_at'])
             ? max(time(), (int)strtotime((string)$me['premium_expires_at']))
             : time();
-        $expires = date('Y-m-d H:i:s', $from + PREMIUM_DAYS * 86400);
-        $balance = credit((int)$me['id'], -PREMIUM_PRICE, 'premium', 'Premium ' . PREMIUM_DAYS . ' хоног (' . substr($expires, 0, 10) . ' хүртэл)');
+        $expires = date('Y-m-d H:i:s', $from + $days * 86400);
+        $balance = credit((int)$me['id'], -$price, 'premium', 'Premium ' . $days . ' хоног (' . substr($expires, 0, 10) . ' хүртэл)');
         q("UPDATE users SET is_premium = 1, premium_expires_at = ? WHERE id = ?", [$expires, $me['id']]);
         return ['balance' => $balance, 'expires' => $expires, 'renewed' => is_premium($me)];
     });
@@ -2655,7 +2679,7 @@ function duo_view(array $m, array $st, bool $done): array
     $w2 = $done ? word_by_id((int)($st['w2'] ?? 0)) : null;
     return [
         'length'       => wlen((string)$m['word']),
-        'max_attempts' => DUO_ATTEMPTS,
+        'max_attempts' => DUO_ATTEMPTS + (int)($st['x'] ?? 0),
         'rows'         => $st['a'] ?? [],
         'solved'       => $st['s'] ?? [false, false],
         'answer2'      => $w2 ? (string)$w2['word'] : null,
@@ -2680,8 +2704,8 @@ function duo_move(array $m, array &$st): array
     $st['a'][] = ['g' => $guess, 'r' => [$r1, $r2]];
     $n    = count($st['a']);
     $won  = $st['s'][0] && $st['s'][1];
-    $done = $won || $n >= DUO_ATTEMPTS;
-    $score = $won ? 20 + 10 * (DUO_ATTEMPTS - $n) : (($st['s'][0] || $st['s'][1]) ? 10 : 0);
+    $done = $won || $n >= DUO_ATTEMPTS + (int)($st['x'] ?? 0);
+    $score = $won ? 20 + 10 * max(0, DUO_ATTEMPTS - $n) : (($st['s'][0] || $st['s'][1]) ? 10 : 0);
     return [$done, $won, $score, ['r' => [$r1, $r2]]];
 }
 
@@ -2858,6 +2882,7 @@ function mini_payload(array $m): array
     ];
     $view = $game . '_view';
     if (in_array($game, MINI_GAMES, true)) $out += $view($m, $st, $done);
+    $out['revive'] = ['available' => revive_available($game, $st, $done), 'price' => REVIVE_PRICE];
     if ($done) {
         $out['best'] = num("SELECT COALESCE(MAX(score), 0) FROM mini_sessions WHERE user_id = ? AND game = ? AND is_completed = 1", [$m['user_id'], $game]);
     }
@@ -2929,8 +2954,13 @@ function a_mini_move(): never
         if ((int)$m['is_completed'] === 1) fail('Энэ тоглоом дууссан байна.', 409);
         if (!in_array($m['game'], MINI_GAMES, true)) fail('Ийм тоглоом алга.', 404);
         $st   = mini_state($m);
-        $move = $m['game'] . '_move';
-        [$done, $won, $score, $info] = $move($m, $st);
+        if (in_bool('revive')) {
+            revive_apply($m, $st);
+            [$done, $won, $score, $info] = [false, false, 0, ['revive' => true]];
+        } else {
+            $move = $m['game'] . '_move';
+            [$done, $won, $score, $info] = $move($m, $st);
+        }
         q(
             "UPDATE mini_sessions SET state = ?, score = ?, is_won = ?, is_completed = ?, completed_at = ? WHERE id = ?",
             [(string)json_encode($st, JSON_UNESCAPED_UNICODE), $done ? $score : 0, (int)$won, (int)$done, $done ? now_str() : null, $m['id']]
@@ -3038,8 +3068,9 @@ function blitz_payload(array $b): array
     $cur  = null;
     if (!$done && isset($ids[$idx])) {
         $w = (string)val("SELECT word FROM words WHERE id = ? LIMIT 1", [$ids[$idx]]);
-        // Холилт нь тоглолт + индексээр тогтмол — хуудас сэргээхэд өөрчлөгдөхгүй
-        mt_srand(crc32($b['id'] . ':' . $idx));
+        // Холилт нь үгсийн жагсаалт + индексээр тогтмол: хуудас сэргээхэд өөрчлөгдөхгүй,
+        // дуэлийн хоёр тоглогчид яг ижил холилт харагдана
+        mt_srand(crc32((string)$b['words'] . ':' . $idx));
         $l = mb_str_split($w, 1, 'UTF-8');
         for ($i = count($l) - 1; $i > 0; $i--) {
             $k = mt_rand(0, $i);
@@ -3108,7 +3139,7 @@ function blitz_arena(array $u): array
 
 function blitz_open_run(int $uid): ?array
 {
-    $b = row("SELECT * FROM blitz_runs WHERE user_id = ? AND finished = 0 ORDER BY id DESC LIMIT 1", [$uid]);
+    $b = row("SELECT * FROM blitz_runs WHERE user_id = ? AND finished = 0 AND ranked < 2 ORDER BY id DESC LIMIT 1", [$uid]);
     if (!$b) return null;
     $b = blitz_close_if_over($b);
     return (int)$b['finished'] === 1 ? null : $b;
@@ -3198,6 +3229,7 @@ function a_blitz_answer(): never
         q("UPDATE blitz_runs SET finished = 1, finished_at = NOW() WHERE id = ?", [$id]);
         $b['finished'] = 1;
     }
+    if ((int)$b['finished'] === 1) duel_after_run($b);
     ok(['move' => $res, 'run' => blitz_payload($b)]);
 }
 
@@ -3208,7 +3240,28 @@ function a_blitz_finish(): never
     q("UPDATE blitz_runs SET finished = 1, finished_at = NOW() WHERE id = ? AND user_id = ? AND finished = 0", [$id, $u['id']]);
     $b = row("SELECT * FROM blitz_runs WHERE id = ? AND user_id = ? LIMIT 1", [$id, $u['id']]);
     if (!$b) fail('Тоглолт олдсонгүй.', 404);
-    ok(['run' => blitz_payload($b), 'arena' => blitz_arena($u)]);
+    $duel = null;
+    if ((int)$b['ranked'] === DUEL_RANKED) {
+        duel_after_run($b);
+        $d = row(DUEL_SELECT . " WHERE d.creator_run = ? OR d.opponent_run = ? LIMIT 1", [$b['id'], $b['id']]);
+        if ($d) $duel = duel_public($d, (int)$u['id']);
+    }
+    ok(['run' => blitz_payload($b), 'arena' => blitz_arena($u), 'duel' => $duel,
+        'balance' => (int)val("SELECT balance FROM users WHERE id = ?", [$u['id']])]);
+}
+
+function duel_summary(int $uid): array
+{
+    try {
+        duel_settle_due($uid);
+        return [
+            'open'    => num("SELECT COUNT(*) FROM duels WHERE status = 'open' AND creator_id <> ?", [$uid]),
+            'waiting' => num("SELECT COUNT(*) FROM duels WHERE status IN ('open', 'active') AND (creator_id = ? OR opponent_id = ?)", [$uid, $uid]),
+            'top'     => (int)(val("SELECT MAX(stake) FROM duels WHERE status = 'open' AND creator_id <> ?", [$uid]) ?? 0),
+        ];
+    } catch (PDOException) {
+        return ['open' => 0, 'waiting' => 0, 'top' => 0];   // setup.php ажиллаагүй
+    }
 }
 
 /* ── Тоглоомын төвийн нүүр: эрх, долоо хоногийн оноо, арена ─── */
@@ -3259,12 +3312,334 @@ function a_games(): never
         'allowance'  => mini_allowance($u),
         'quiz_ready' => quiz_ready(),
         'per_game'   => (object)$per,
+        'duels'      => duel_summary((int)$u['id']),
         'open'       => $open,
         'arena'      => blitz_arena($u),
         'leaders'    => $leaders,
         'me'         => $me,
         'mine'       => ['played' => (int)($mine['played'] ?? 0), 'won' => (int)($mine['won'] ?? 0), 'points' => (int)($mine['points'] ?? 0)],
     ]);
+}
+
+/* ============================================================
+   ДУЭЛЬ — 1 vs 1 мөрийтэй Blitz. Хоёр тоглогч ижил үгсийг 60 секундэд
+   тайлна; их оноотой нь санг авна. Сангаас DUEL_RAKE% сайтад үлдэнэ.
+   Тоглолт нь blitz_runs хүснэгтэд ranked = 2 гэж хадгалагдана.
+   ============================================================ */
+const DUEL_RANKED = 2;
+
+function duel_pot(int $stake): array
+{
+    $pot  = $stake * 2;
+    $rake = intdiv($pot * max(0, min(100, (int)DUEL_RAKE)), 100);
+    return [$pot, $rake, $pot - $rake];
+}
+
+function duel_code(): string
+{
+    $abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    for ($i = 0; $i < 20; $i++) {
+        $c = '';
+        for ($k = 0; $k < 6; $k++) $c .= $abc[random_int(0, strlen($abc) - 1)];
+        if (!val("SELECT 1 FROM duels WHERE code = ? LIMIT 1", [$c])) return $c;
+    }
+    throw new RuntimeException('duel code');
+}
+
+/** Дуэлийн тоглолт үүсгэнэ (tx дотор) */
+function duel_new_run(int $uid, string $words): int
+{
+    q(
+        "INSERT INTO blitz_runs (user_id, run_date, ranked, fee_paid, words, idx, score, solved, skipped, started_at, ends_at, finished)
+         VALUES (?, ?, ?, 0, ?, 0, 0, 0, 0, NOW(), ?, 0)",
+        [$uid, today(), DUEL_RANKED, $words, date('Y-m-d H:i:s', time() + BLITZ_SECONDS + 1)]
+    );
+    return (int)db()->lastInsertId();
+}
+
+function run_over(?array $b): bool
+{
+    return !$b || (int)$b['finished'] === 1 || blitz_left($b) < -2;
+}
+
+/** Хоёулаа тоглож дууссан бол ялагчид мөнгийг олгоно. Давхар төлөхгүй (FOR UPDATE). */
+function duel_settle(int $id): void
+{
+    tx(function () use ($id): void {
+        $d = row("SELECT * FROM duels WHERE id = ? FOR UPDATE", [$id]);
+        if (!$d || $d['status'] !== 'active') return;
+        $a = row("SELECT * FROM blitz_runs WHERE id = ? LIMIT 1", [(int)$d['creator_run']]);
+        $b = row("SELECT * FROM blitz_runs WHERE id = ? LIMIT 1", [(int)$d['opponent_run']]);
+        if (!run_over($a) || !run_over($b)) return;
+        foreach ([$a, $b] as $r) if ($r && (int)$r['finished'] === 0) q("UPDATE blitz_runs SET finished = 1, finished_at = ends_at WHERE id = ?", [$r['id']]);
+
+        $stake = (int)$d['stake'];
+        [, $rake, $prize] = duel_pot($stake);
+        $sa = (int)($a['score'] ?? 0);
+        $sb = (int)($b['score'] ?? 0);
+        $winner = null;
+        if ($sa === $sb) {
+            // Тэнцвэл хоёуланд нь сангаа тэнцүү хуваана (шимтгэл хасаад)
+            $each = intdiv($prize, 2);
+            $rake = $stake * 2 - $each * 2;
+            credit((int)$d['creator_id'], $each, 'duel_refund', 'Дуэль тэнцсэн (' . $sa . ':' . $sb . ')', $id);
+            credit((int)$d['opponent_id'], $each, 'duel_refund', 'Дуэль тэнцсэн (' . $sb . ':' . $sa . ')', $id);
+            $payout = $each;
+        } else {
+            $winner = $sa > $sb ? (int)$d['creator_id'] : (int)$d['opponent_id'];
+            $hi = max($sa, $sb);
+            $lo = min($sa, $sb);
+            credit($winner, $prize, 'duel_win', "Дуэль ялсан ($hi:$lo)", $id, 'won_balance');
+            $payout = $prize;
+        }
+        q("UPDATE duels SET status = 'done', winner_id = ?, payout = ?, rake = ?, settled_at = NOW() WHERE id = ?", [$winner, $payout, $rake, $id]);
+    });
+}
+
+/** Хугацаа нь дууссан нээлттэй дуэлийг буцааж, тоглогдож дууссаныг шийднэ */
+function duel_settle_due(?int $uid = null): void
+{
+    try {
+        foreach (rows(
+            "SELECT id FROM duels WHERE status = 'open' AND created_at < ? LIMIT 20",
+            [date('Y-m-d H:i:s', time() - DUEL_EXPIRE_HOURS * 3600)]
+        ) as $r) {
+            tx(function () use ($r): void {
+                $d = row("SELECT * FROM duels WHERE id = ? FOR UPDATE", [$r['id']]);
+                if (!$d || $d['status'] !== 'open') return;
+                credit((int)$d['creator_id'], (int)$d['stake'], 'duel_refund', 'Дуэлийг хэн ч хүлээж аваагүй — мөрий буцаав', (int)$d['id']);
+                q("UPDATE duels SET status = 'expired', settled_at = NOW() WHERE id = ?", [$d['id']]);
+            });
+        }
+        $params = [date('Y-m-d H:i:s', time() - BLITZ_SECONDS - 15)];
+        $mine = '';
+        if ($uid) { $mine = ' OR creator_id = ? OR opponent_id = ?'; $params[] = $uid; $params[] = $uid; }
+        foreach (rows("SELECT id FROM duels WHERE status = 'active' AND (accepted_at < ?$mine) LIMIT 30", $params) as $r) {
+            duel_settle((int)$r['id']);
+        }
+    } catch (Throwable $e) {
+        error_log('[vgtaa] duel settle: ' . $e->getMessage());
+    }
+}
+
+function duel_public(array $d, int $uid): array
+{
+    $mine   = (int)$d['creator_id'] === $uid ? 'creator' : ((int)($d['opponent_id'] ?? 0) === $uid ? 'opponent' : null);
+    $done   = $d['status'] === 'done';
+    $cr     = $d['creator_run'] ? row("SELECT score, solved, finished, ends_at FROM blitz_runs WHERE id = ?", [(int)$d['creator_run']]) : null;
+    $or     = $d['opponent_run'] ? row("SELECT score, solved, finished, ends_at FROM blitz_runs WHERE id = ?", [(int)$d['opponent_run']]) : null;
+    $myRun  = $mine === 'creator' ? $cr : ($mine === 'opponent' ? $or : null);
+    $their  = $mine === 'creator' ? $or : ($mine === 'opponent' ? $cr : null);
+    [, , $prize] = duel_pot((int)$d['stake']);
+    $result = null;
+    if ($done && $mine) {
+        $result = $d['winner_id'] === null ? 'tie' : ((int)$d['winner_id'] === $uid ? 'won' : 'lost');
+    }
+    return [
+        'id'         => (int)$d['id'],
+        'code'       => (string)$d['code'],
+        'stake'      => (int)$d['stake'],
+        'prize'      => $prize,
+        'status'     => (string)$d['status'],
+        'role'       => $mine,
+        'creator'    => ['name' => (string)($d['c_name'] ?? ''), 'avatar' => (string)($d['c_avatar'] ?? '')],
+        'opponent'   => $d['opponent_id'] ? ['name' => (string)($d['o_name'] ?? ''), 'avatar' => (string)($d['o_avatar'] ?? '')] : null,
+        'my_score'   => $myRun ? (int)$myRun['score'] : null,
+        // Өрсөлдөгчийн оноог дуэль дуусахаас өмнө харуулахгүй
+        'their_score'=> $done && $their ? (int)$their['score'] : null,
+        'result'     => $result,
+        'payout'     => (int)$d['payout'],
+        'created_at' => $d['created_at'],
+        'expires_at' => date('Y-m-d H:i:s', (int)strtotime((string)$d['created_at']) + DUEL_EXPIRE_HOURS * 3600),
+        'link'       => rtrim(APP_URL, '/') . '/#/g/duel/' . $d['code'],
+    ];
+}
+
+const DUEL_SELECT = "SELECT d.*, c.username AS c_name, c.avatar_url AS c_avatar, o.username AS o_name, o.avatar_url AS o_avatar
+                     FROM duels d JOIN users c ON c.id = d.creator_id LEFT JOIN users o ON o.id = d.opponent_id";
+
+function duel_open_run(int $uid): ?array
+{
+    $b = row("SELECT * FROM blitz_runs WHERE user_id = ? AND ranked = ? AND finished = 0 ORDER BY id DESC LIMIT 1", [$uid, DUEL_RANKED]);
+    if (!$b) return null;
+    $b = blitz_close_if_over($b);
+    return (int)$b['finished'] === 1 ? null : $b;
+}
+
+function a_duels(): never
+{
+    $u = require_user();
+    $uid = (int)$u['id'];
+    duel_settle_due($uid);
+    $open = rows(DUEL_SELECT . " WHERE d.status = 'open' AND d.creator_id <> ? AND c.is_banned = 0 ORDER BY d.stake DESC, d.id ASC LIMIT 30", [$uid]);
+    $mine = rows(DUEL_SELECT . " WHERE d.creator_id = ? OR d.opponent_id = ? ORDER BY d.id DESC LIMIT 20", [$uid, $uid]);
+    $run  = duel_open_run($uid);
+    $stats = row(
+        "SELECT COUNT(*) AS played, COALESCE(SUM(winner_id = ?), 0) AS won, COALESCE(SUM(CASE WHEN winner_id = ? THEN payout ELSE 0 END), 0) AS earned
+         FROM duels WHERE status = 'done' AND (creator_id = ? OR opponent_id = ?)",
+        [$uid, $uid, $uid, $uid]
+    );
+    ok([
+        'open'   => array_map(fn(array $d): array => duel_public($d, $uid), $open),
+        'mine'   => array_map(fn(array $d): array => duel_public($d, $uid), $mine),
+        'run'    => $run ? blitz_payload($run) : null,
+        'stakes' => DUEL_STAKES,
+        'rake'   => DUEL_RAKE,
+        'stats'  => ['played' => (int)($stats['played'] ?? 0), 'won' => (int)($stats['won'] ?? 0), 'earned' => (int)($stats['earned'] ?? 0)],
+        'balance' => (int)val("SELECT balance FROM users WHERE id = ?", [$uid]),
+    ]);
+}
+
+function a_duel(): never
+{
+    $u = require_user();
+    duel_settle_due((int)$u['id']);
+    $d = row(DUEL_SELECT . " WHERE d.code = ? LIMIT 1", [strtoupper(qs('code'))]);
+    if (!$d) fail('Дуэль олдсонгүй. Холбоос буруу эсвэл устгагдсан байна.', 404);
+    ok(['duel' => duel_public($d, (int)$u['id'])]);
+}
+
+function a_duel_create(): never
+{
+    $u     = require_user();
+    $stake = in_int('stake');
+    if (!in_array($stake, DUEL_STAKES, true)) fail('Мөрийн дүнгээ сонгоно уу.', 422);
+
+    [$runId, $code] = tx(function () use ($u, $stake): array {
+        $me = row("SELECT * FROM users WHERE id = ? FOR UPDATE", [$u['id']]);
+        if (blitz_open_run((int)$me['id']) || duel_open_run((int)$me['id'])) fail('Өмнөх тоглолтоо дуусгана уу.', 409);
+        if (num("SELECT COUNT(*) FROM duels WHERE creator_id = ? AND status = 'open'", [$me['id']]) >= DUEL_MAX_OPEN) {
+            fail('Хүлээгдэж буй ' . DUEL_MAX_OPEN . ' дуэль байна. Тэдгээрийг хэн нэгэн хүлээж авахыг хүлээнэ үү.', 409);
+        }
+        $ids = array_map('intval', array_column(rows(
+            "SELECT id FROM words WHERE is_active = 1 AND CHAR_LENGTH(word) BETWEEN 4 AND 7 ORDER BY RAND() LIMIT 40"
+        ), 'id'));
+        if (count($ids) < 5) fail('Үгийн сан хангалтгүй байна.', 409);
+        $words = (string)json_encode($ids);
+        $code  = duel_code();
+        q("INSERT INTO duels (code, creator_id, stake, words, status, created_at) VALUES (?, ?, ?, ?, 'open', NOW())",
+            [$code, $me['id'], $stake, $words]);
+        $did = (int)db()->lastInsertId();
+        credit((int)$me['id'], -$stake, 'duel_stake', 'Дуэлийн мөрий (' . $code . ')', $did);
+        $run = duel_new_run((int)$me['id'], $words);
+        q("UPDATE duels SET creator_run = ? WHERE id = ?", [$run, $did]);
+        return [$run, $code];
+    });
+
+    $u = row("SELECT * FROM users WHERE id = ? LIMIT 1", [$u['id']]) ?? $u;
+    ok([
+        'run'     => blitz_payload(row("SELECT * FROM blitz_runs WHERE id = ?", [$runId])),
+        'duel'    => duel_public(row(DUEL_SELECT . " WHERE d.code = ?", [$code]), (int)$u['id']),
+        'balance' => (int)$u['balance'],
+    ]);
+}
+
+function a_duel_accept(): never
+{
+    $u    = require_user();
+    $code = strtoupper(in_str('code', 12));
+
+    [$runId, $did] = tx(function () use ($u, $code): array {
+        $d = row("SELECT * FROM duels WHERE code = ? LIMIT 1 FOR UPDATE", [$code]);
+        if (!$d) fail('Дуэль олдсонгүй.', 404);
+        if ((int)$d['creator_id'] === (int)$u['id']) fail('Өөрийнхөө дуэлийг хүлээж авах боломжгүй. Холбоосоо найздаа илгээгээрэй.', 409);
+        if ($d['status'] !== 'open') fail('Энэ дуэлийг өөр хүн аль хэдийн хүлээж авсан эсвэл хугацаа нь дууссан.', 409, ['code' => 'duel_taken']);
+        if ((int)strtotime((string)$d['created_at']) < time() - DUEL_EXPIRE_HOURS * 3600) fail('Дуэлийн хугацаа дууссан байна.', 409, ['code' => 'duel_taken']);
+        $me = row("SELECT * FROM users WHERE id = ? FOR UPDATE", [$u['id']]);
+        if (blitz_open_run((int)$me['id']) || duel_open_run((int)$me['id'])) fail('Өмнөх тоглолтоо дуусгана уу.', 409);
+        credit((int)$me['id'], -(int)$d['stake'], 'duel_stake', 'Дуэлийн мөрий (' . $d['code'] . ')', (int)$d['id']);
+        $run = duel_new_run((int)$me['id'], (string)$d['words']);
+        q("UPDATE duels SET opponent_id = ?, opponent_run = ?, status = 'active', accepted_at = NOW() WHERE id = ?", [$me['id'], $run, $d['id']]);
+        return [$run, (int)$d['id']];
+    });
+
+    $u = row("SELECT * FROM users WHERE id = ? LIMIT 1", [$u['id']]) ?? $u;
+    ok([
+        'run'     => blitz_payload(row("SELECT * FROM blitz_runs WHERE id = ?", [$runId])),
+        'duel'    => duel_public(row(DUEL_SELECT . " WHERE d.id = ?", [$did]), (int)$u['id']),
+        'balance' => (int)$u['balance'],
+    ]);
+}
+
+/** Blitz тоглолт дуусахад дуэлийнх бол шийдвэрлэнэ */
+function duel_after_run(array $b): void
+{
+    if ((int)$b['ranked'] !== DUEL_RANKED) return;
+    $d = row("SELECT id FROM duels WHERE creator_run = ? OR opponent_run = ? LIMIT 1", [$b['id'], $b['id']]);
+    if ($d) duel_settle((int)$d['id']);
+}
+
+/* ============================================================
+   СЭРГЭЭХ — тоглоом дуусахын өмнө нэмэлт амь/оролдлого худалдаж авна
+   ============================================================ */
+function revive_available(string $game, array $st, bool $done): bool
+{
+    if ($done || !empty($st['rv'])) return false;
+    return match ($game) {
+        'hangman' => HANGMAN_LIVES - (int)($st['w'] ?? 0) <= 2,
+        'anagram' => ANAGRAM_TRIES - (int)($st['t'] ?? 0) <= 1,
+        'duo'     => DUO_ATTEMPTS + (int)($st['x'] ?? 0) - count($st['a'] ?? []) <= 2,
+        default   => false,
+    };
+}
+
+/** tx() дотор. Амжилттай бол төлөвт өөрчлөлт хийнэ. */
+function revive_apply(array $m, array &$st): void
+{
+    if (!revive_available((string)$m['game'], $st, false)) fail('Одоогоор сэргээх боломжгүй.', 409);
+    credit((int)$m['user_id'], -REVIVE_PRICE, 'revive', 'Сэргээх: ' . (MINI_LABELS[$m['game']] ?? $m['game']), (int)$m['id']);
+    $st['rv'] = 1;
+    match ((string)$m['game']) {
+        'hangman' => $st['w'] = max(0, (int)($st['w'] ?? 0) - 2),
+        'anagram' => $st['t'] = max(0, (int)($st['t'] ?? 0) - 1),
+        'duo'     => $st['x'] = (int)($st['x'] ?? 0) + 2,
+    };
+}
+
+/* ============================================================
+   ИВЭЭН ТЭТГЭГЧ — админ зарын байр зарна (баннер + холбоос)
+   ============================================================ */
+function sponsor_public(?array $s = null): ?array
+{
+    $s = $s ?? settings();
+    if (empty($s['sponsor_enabled']) || $s['sponsor_name'] === '' || $s['sponsor_url'] === '') return null;
+    return [
+        'name'  => (string)$s['sponsor_name'],
+        'text'  => (string)$s['sponsor_text'],
+        'url'   => (string)$s['sponsor_url'],
+        'image' => (string)$s['sponsor_image'],
+        'cta'   => (string)($s['sponsor_cta'] ?: 'Дэлгэрэнгүй'),
+    ];
+}
+
+function kv_incr(string $k): void
+{
+    try {
+        q("INSERT INTO app_kv (k, v, expires_at) VALUES (?, '1', 0) ON DUPLICATE KEY UPDATE v = CAST(v AS UNSIGNED) + 1", [$k]);
+    } catch (PDOException) {
+    }
+}
+
+function sponsor_stats(): array
+{
+    $out = ['views' => 0, 'clicks' => 0];
+    try {
+        $from = day_shift(today(), -29);
+        foreach (rows("SELECT k, v FROM app_kv WHERE k LIKE 'sponsor:%'") as $r) {
+            $parts = explode(':', (string)$r['k']);
+            if (count($parts) !== 3 || $parts[2] < $from) continue;
+            if ($parts[1] === 'view') $out['views'] += (int)$r['v'];
+            if ($parts[1] === 'click') $out['clicks'] += (int)$r['v'];
+        }
+    } catch (PDOException) {
+    }
+    return $out;
+}
+
+function a_sponsor_click(): never
+{
+    if (sponsor_public()) kv_incr('sponsor:click:' . today());
+    ok();
 }
 
 /* ============================================================
@@ -3317,8 +3692,44 @@ function a_admin_overview(): never
             'paid'  => (int)($byDate[$d]['paid'] ?? 0),
         ];
     }
+    // Орлогын задаргаа (30 хоног): эерэг = сайтын орлого, сөрөг = зардал
+    $since = day_shift($today, -29) . ' 00:00:00';
+    $sum = [];
+    foreach (rows("SELECT type, COALESCE(SUM(amount), 0) AS s FROM transactions WHERE created_at >= ? GROUP BY type", [$since]) as $r) $sum[(string)$r['type']] = (int)$r['s'];
+    $net = fn(array $types): int => -array_sum(array_map(fn(string $t): int => $sum[$t] ?? 0, $types));
+    // Сантай тоглоомууд: зөвхөн шийдэгдсэн (шагнал олгосон) хэсгийн шимтгэл. Барьцаанд байгаа мөнгө орлого биш.
+    $settled = function (string $kind) use ($since, $today): int {
+        try {
+            if ($kind === 'duel') return num("SELECT COALESCE(SUM(rake), 0) FROM duels WHERE status = 'done' AND settled_at >= ?", [$since]);
+            $sql = $kind === 'blitz'
+                ? "SELECT run_date AS d, SUM(fee_paid) AS fees, SUM(prize_won) AS paid FROM blitz_runs
+                   WHERE ranked = 1 AND run_date >= ? AND run_date < ? GROUP BY run_date"
+                : "SELECT t.id AS d, SUM(te.fee_paid) AS fees, SUM(te.prize_won) AS paid FROM tournaments t
+                   JOIN tournament_entries te ON te.tournament_id = t.id
+                   WHERE t.status = 'finished' AND t.tournament_date >= ? AND t.tournament_date < ? GROUP BY t.id";
+            $total = 0;
+            // Ялагчгүй бол хураамжийг бүтнээр буцаадаг тул шимтгэл 0
+            foreach (rows($sql, [substr($since, 0, 10), $today]) as $r) if ((int)$r['paid'] > 0) $total += (int)$r['fees'] - (int)$r['paid'];
+            return $total;
+        } catch (PDOException) {
+            return 0;
+        }
+    };
+    $revenue = [
+        ['key' => 'premium',    'label' => 'Premium',                   'amount' => $net(['premium'])],
+        ['key' => 'duel',       'label' => 'Дуэлийн шимтгэл',           'amount' => $settled('duel')],
+        ['key' => 'blitz',      'label' => 'Blitz аренагийн шимтгэл',   'amount' => $settled('blitz')],
+        ['key' => 'tournament', 'label' => 'Тэмцээний шимтгэл',         'amount' => $settled('tournament')],
+        ['key' => 'hint',       'label' => 'Сэжүүр',                    'amount' => $net(['hint'])],
+        ['key' => 'mini',       'label' => 'Нэмэлт тоглолт',            'amount' => $net(['mini_play'])],
+        ['key' => 'revive',     'label' => 'Сэргээх',                   'amount' => $net(['revive'])],
+        ['key' => 'rewards',    'label' => 'Өдрийн шагнал (зардал)',    'amount' => $net(['win'])],
+        ['key' => 'referral',   'label' => 'Урилгын урамшуулал (зардал)', 'amount' => $net(['referral'])],
+    ];
     $fx = fixed_word($today);
     ok([
+        'revenue' => $revenue,
+        'profit'  => array_sum(array_column($revenue, 'amount')),
         'stats'  => $stats,
         'series' => $series,
         'today'  => [
@@ -3673,6 +4084,7 @@ function settings_admin_view(array $s): array
     $s['telegram_webhook_secret'] = '';
     $s['webhook_possible'] = str_starts_with(APP_URL, 'https://');
     $s['platform'] = PLATFORM;
+    $s['sponsor_stats'] = sponsor_stats();
     return $s;
 }
 
@@ -3726,6 +4138,19 @@ function a_admin_settings_save(): never
         $chat = in_str('telegram_chat_id', 64);
         if ($chat !== '' && !preg_match('/^(-?\d{3,20}|@[A-Za-z0-9_]{5,64})$/', $chat)) fail('Chat ID буруу байна.', 422);
         $patch['telegram_chat_id'] = $chat;
+    }
+    if (array_key_exists('sponsor_enabled', $in)) $patch['sponsor_enabled'] = in_bool('sponsor_enabled');
+    if (array_key_exists('sponsor_name', $in)) $patch['sponsor_name'] = in_str('sponsor_name', 60);
+    if (array_key_exists('sponsor_text', $in)) $patch['sponsor_text'] = in_str('sponsor_text', 160);
+    if (array_key_exists('sponsor_cta', $in)) $patch['sponsor_cta'] = in_str('sponsor_cta', 24);
+    foreach (['sponsor_url', 'sponsor_image'] as $k) {
+        if (!array_key_exists($k, $in)) continue;
+        $v = trim(is_string($in[$k]) ? $in[$k] : '');
+        if ($v !== '' && (!preg_match('#^https://[^\s"\'<>]+$#i', $v) || strlen($v) > 500)) fail('Холбоос https://-ээр эхэлсэн зөв хаяг байх ёстой.', 422);
+        $patch[$k] = $v;
+    }
+    if (!empty($patch['sponsor_enabled']) && (($patch['sponsor_name'] ?? settings()['sponsor_name']) === '' || ($patch['sponsor_url'] ?? settings()['sponsor_url']) === '')) {
+        fail('Ивээн тэтгэгчийн нэр болон холбоосыг бөглөнө үү.', 422);
     }
     $s = settings_save($patch);
     $warn = !empty($s['deposit_enabled']) && !deposits_ready($s) ? ' Цэнэглэлт идэвхжихийн тулд банк, эзэмшигчийн нэр, дансны дугаараа бөглөнө үү.' : '';
@@ -3831,6 +4256,7 @@ function expected_columns(): array
         'practice_sessions'  => ['id', 'user_id', 'word_id', 'attempts', 'attempts_count', 'is_won', 'is_completed', 'hints', 'created_at', 'completed_at'],
         'game_sessions'      => ['id', 'user_id', 'word_id', 'game_date', 'attempts', 'attempts_count', 'is_won', 'is_completed', 'reward_amount', 'reward_paid', 'hints', 'created_at', 'completed_at'],
         'mini_sessions'      => ['id', 'user_id', 'game', 'word_id', 'state', 'score', 'fee_paid', 'is_won', 'is_completed', 'created_at', 'completed_at'],
+        'duels'              => ['id', 'code', 'creator_id', 'opponent_id', 'stake', 'words', 'creator_run', 'opponent_run', 'status', 'winner_id', 'payout', 'rake', 'created_at', 'accepted_at', 'settled_at'],
         'blitz_runs'         => ['id', 'user_id', 'run_date', 'ranked', 'fee_paid', 'words', 'idx', 'score', 'solved', 'skipped', 'started_at', 'ends_at', 'finished', 'finished_at', 'prize_won'],
         'archive_sessions'   => ['id', 'user_id', 'game_date', 'word_id', 'attempts', 'attempts_count', 'is_won', 'is_completed', 'created_at', 'completed_at'],
         'transactions'       => ['id', 'user_id', 'type', 'amount', 'balance_before', 'balance_after', 'description', 'reference_id', 'created_at'],
@@ -3938,6 +4364,11 @@ $routes = [
     'blitz_start'       => ['POST', 'a_blitz_start'],
     'blitz_answer'      => ['POST', 'a_blitz_answer'],
     'blitz_finish'      => ['POST', 'a_blitz_finish'],
+    'duels'             => ['GET',  'a_duels'],
+    'duel'              => ['GET',  'a_duel'],
+    'duel_create'       => ['POST', 'a_duel_create'],
+    'duel_accept'       => ['POST', 'a_duel_accept'],
+    'sponsor_click'     => ['POST', 'a_sponsor_click'],
     // админ
     'admin_overview'    => ['GET',  'a_admin_overview'],
     'admin_users'       => ['GET',  'a_admin_users'],

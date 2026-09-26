@@ -243,6 +243,8 @@ $INDEXES = [
     ['tournament_entries', ['tournament_id', 'user_id'], true,  'uq_entries_user'],
     ['mini_sessions',      ['user_id', 'game', 'is_completed'], false, 'idx_mini_open'],
     ['blitz_runs',         ['run_date', 'ranked', 'score'], false, 'idx_blitz_day'],
+    ['duels',              ['code'],                     true,  'uq_duels_code'],
+    ['duels',              ['status', 'created_at'],     false, 'idx_duels_status'],
 ];
 
 /* ── 140 монгол үг (тайлбартай) ───────────────────────────── */
@@ -393,7 +395,7 @@ $SEED = [
 function status_summary(PDO $pdo, array $COLUMNS): array
 {
     $missing = [];
-    foreach (['users', 'words', 'daily_words', 'game_sessions', 'archive_sessions', 'transactions', 'referrals', 'withdrawals', 'tournaments', 'tournament_entries', 'app_kv', 'deposits', 'practice_sessions', 'mini_sessions', 'blitz_runs'] as $t) {
+    foreach (['users', 'words', 'daily_words', 'game_sessions', 'archive_sessions', 'transactions', 'referrals', 'withdrawals', 'tournaments', 'tournament_entries', 'app_kv', 'deposits', 'practice_sessions', 'mini_sessions', 'blitz_runs', 'duels'] as $t) {
         if (!table_exists($pdo, $t)) {
             $missing[] = $t . ' (хүснэгт)';
             continue;

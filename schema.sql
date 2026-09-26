@@ -1,5 +1,5 @@
 -- ============================================================
--- Үг Таа — мэдээллийн сангийн бүтэц (v7.0)
+-- Үг Таа — мэдээллийн сангийн бүтэц (v7.2)
 --
 -- Шинээр суулгах бол: setup.php-г ажиллуул (энэ файлыг автоматаар
 -- уншиж, дутуу хүснэгт/баганыг нэмнэ). Эсвэл phpMyAdmin → Import.
@@ -252,4 +252,28 @@ CREATE TABLE IF NOT EXISTS blitz_runs (
   PRIMARY KEY (id),
   KEY idx_blitz_day (run_date, ranked, score),
   KEY idx_blitz_user (user_id, started_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- v7.2: Дуэль — 1 vs 1 мөрийтэй Blitz (тоглолт нь blitz_runs-д ranked = 2)
+CREATE TABLE IF NOT EXISTS duels (
+  id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  code         VARCHAR(12)  NOT NULL,
+  creator_id   INT UNSIGNED NOT NULL,
+  opponent_id  INT UNSIGNED NULL,
+  stake        INT          NOT NULL,
+  words        TEXT         NULL,
+  creator_run  INT UNSIGNED NULL,
+  opponent_run INT UNSIGNED NULL,
+  status       VARCHAR(16)  NOT NULL DEFAULT 'open',
+  winner_id    INT UNSIGNED NULL,
+  payout       INT          NOT NULL DEFAULT 0,
+  rake         INT          NOT NULL DEFAULT 0,
+  created_at   DATETIME     NULL DEFAULT CURRENT_TIMESTAMP,
+  accepted_at  DATETIME     NULL,
+  settled_at   DATETIME     NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_duels_code (code),
+  KEY idx_duels_status (status, created_at),
+  KEY idx_duels_creator (creator_id, status),
+  KEY idx_duels_opponent (opponent_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

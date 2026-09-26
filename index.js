@@ -16,7 +16,7 @@
 'use strict';
 
 (() => {
-  const VERSION = '7.1.0';
+  const VERSION = '7.2.0';
 
   /* ============================================================
      1. ТУСЛАХ ФУНКЦУУД
@@ -156,6 +156,7 @@
     shuffle: '<path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/>',
     gamepad: '<line x1="6" x2="10" y1="12" y2="12"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="15" x2="15.01" y1="13" y2="13"/><line x1="18" x2="18.01" y1="11" y2="11"/><rect width="20" height="12" x="2" y="6" rx="2"/>',
     skip: '<polygon points="5 4 15 12 5 20 5 4"/><line x1="19" x2="19" y1="5" y2="19"/>',
+    swords: '<polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" x2="19" y1="19" y2="13"/><line x1="16" x2="20" y1="16" y2="20"/><line x1="19" x2="21" y1="21" y2="19"/><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"/><line x1="5" x2="9" y1="14" y2="18"/><line x1="7" x2="4" y1="17" y2="20"/><line x1="3" x2="5" y1="19" y2="21"/>',
     columns: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 3v18"/>',
     scale: '<path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>',
     flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>',
@@ -657,7 +658,8 @@
         ['Мөнгөө яаж авах вэ?', `Хэтэвч хэсгээс банкны данс руугаа татна. Хамгийн багадаа ${money(c.min_withdrawal)}, мөн ${c.referral_unlock} найзаа урьж баталгаажуулсан байх шаардлагатай. Ажлын 1–3 өдөрт шилжүүлнэ.`],
         ['Найз урих гэж юу вэ?', `Өөрийн холбоосоо найздаа илгээ. Найз тань бүртгүүлээд анх удаа үг таамагц танд ${money(c.referral_bonus)} урамшуулал орно.`],
         ['Тэмцээн яаж явагддаг вэ?', `${money(c.tournament_fee)} хураамж төлж, өдрийн үгээ таахаас өмнө нэгдэнэ. Хамгийн цөөн оролдлогоор, хамгийн эрт таасан 3 хүн сангаа ${split} хувиар хуваана.${c.tournament_rake > 0 ? ` Хураамжийн ${c.tournament_rake}% нь үйлчилгээний шимтгэл.` : ''}`],
-        ['Ямар тоглоомууд байгаа вэ?', 'Өдрийн үгээс гадна Хос үг, Үг хайх, Үнэн үү худал уу, Дүүжлүүр, Үг холих, Тайлбар таах, Blitz арена гэсэн 7 тоглоом бий. Тоглоом бүр оноо өгч, 7 хоногийн шилдгийн жагсаалтад тооцогдоно.'],
+        ['Ямар тоглоомууд байгаа вэ?', 'Өдрийн үгээс гадна Хос үг, Үг хайх, Үнэн үү худал уу, Дүүжлүүр, Үг холих, Тайлбар таах, Blitz арена гэсэн 7 тоглоом, мөн мөрийтэй 1 vs 1 Дуэль бий. Тоглоом бүр оноо өгч, 7 хоногийн шилдгийн жагсаалтад тооцогдоно.'],
+        ['Дуэль гэж юу вэ?', `Найзтайгаа эсвэл дурын тоглогчтой мөрийтэй өрсөлдөнө (${(c.duel_stakes || []).map(money).join(', ')}). Хоёулаа ижил үгсийг 60 секундэд тайлж, их оноотой нь хоёр мөрийн нийлбэрийг авна (${c.duel_rake}% шимтгэл). ${c.duel_expire_hours || 24} цагт хэн ч хүлээж авахгүй бол мөрий бүтнээрээ буцна.`],
         ['Blitz арена гэж юу вэ?', `60 секундэд холимог үгсийг аль болох олноор тайлна. Оноотой тоглолтын хураамж ${money(c.blitz_fee)}. Хураамжийн ${100 - (c.blitz_rake ?? 25)}% шагналын санд орж, маргааш нь өдрийн шилдэг 3 тоглогчид автоматаар хуваарилагдана.`],
         ['Premium гэж юу вэ?', `Сард ${money(c.premium_price)}. ${c.premium_multiplier > 1 ? `${c.premium_multiplier}× шагнал, ` : ''}тэмцээнд үнэгүй оролцох, бүх тоглоом, дасгалыг хязгааргүй тоглох, Blitz-д өдөр бүр үнэгүй оролцох, сэжүүр хагас үнээр авах эрх.`],
       ];
@@ -1280,6 +1282,7 @@
             <button class="btn btn-primary" type="button" data-action="share">${icon('share')} Хуваалцах</button>
           </div>
           <a class="btn btn-ghost btn-block" href="#/games" data-close>${icon('gamepad')} Бусад тоглоом тоглох</a>` : ''}
+        ${fresh ? sponsorCard() : ''}
       `);
     },
 
@@ -1346,6 +1349,7 @@
             <div>${icon('gift')}<span>Таавал <b>${money(c.reward_amount)}</b> шагнал шууд хэтэвчинд.</span></div>
             <div>${icon('target')}<span>Тэмцээнд үгээ таахаас <b>өмнө</b> нэгдэнэ.</span></div>
             <div>${icon('bulb')}<span>Гацвал <b>Сэжүүр</b> авч нэг үсэг нээ (өдрийн үгэнд шагналгүй болно).</span></div>
+            <div>${icon('swords')}<span><b>Дуэль</b> — найзаа мөрийтэй сорьж, ялбал санг ав.</span></div>
             <div>${icon('gamepad')}<span><b>Тоглоом</b> цэсэнд Хос үг, Үг хайх, Үнэн үү худал уу, Дүүжлүүр, Үг холих, Тайлбар таах, <b>Blitz арена</b> бий.</span></div>
             <div>${icon('clock')}<span>Шинэ үг Монголын цагаар <b>00:00</b>-д гарна.</span></div>
           </div>
@@ -1629,6 +1633,15 @@
         ['clock', 'Нэг тоглолтод 10 асуулт.'],
       ],
     },
+    duel: {
+      icon: 'swords', title: 'Дуэль', sub: '1 vs 1 мөрийтэй сорилт',
+      rules: [
+        ['swords', 'Мөрийн дүнгээ сонгоод дуэль үүсгэ, эсвэл бусдын сорилтыг хүлээж ав.'],
+        ['clock', 'Хоёулаа яг ижил холимог үгсийг 60 секундэд тайлна. Өрсөлдөгчийн оноо тоглож дуусахаас өмнө харагдахгүй.'],
+        ['trophy', 'Их оноотой нь хоёр мөрийн нийлбэрийг (шимтгэл хасаад) авна. Тэнцвэл хуваана.'],
+        ['refresh', '24 цагт хэн ч хүлээж авахгүй бол мөрий бүтнээрээ буцна.'],
+      ],
+    },
     blitz: {
       icon: 'zap', title: 'Blitz арена', sub: '60 секундэд аль болох олон үг',
       rules: [
@@ -1667,6 +1680,17 @@
   const allowanceChip = (a, compact = false) => a.unlimited
     ? html`<span class="chip chip-gold" title="Premium — хязгааргүй">${icon('crown')}${compact ? '' : ' Хязгааргүй'}</span>`
     : html`<span class="chip" title="Өнөөдрийн үнэгүй тоглолт" aria-label="Өнөөдөр ${a.left}/${a.limit} үнэгүй тоглолт">${icon('gamepad')} <span><b>${a.left}</b>/${a.limit}${compact ? '' : ' үнэгүй'}</span></span>`;
+
+  /** Ивээн тэтгэгчийн баннер (админ тохируулсан бол) */
+  const sponsorCard = () => {
+    const sp = App.sponsor;
+    if (!sp) return '';
+    return html`<a class="sponsor" href="${sp.url}" target="_blank" rel="sponsored noopener noreferrer" data-sponsor>
+      ${sp.image ? html`<img class="sp-img" src="${sp.image}" alt="" loading="lazy" referrerpolicy="no-referrer">` : html`<span class="sp-img sp-ph">${icon('star')}</span>`}
+      <span class="sp-main"><small>Ивээн тэтгэгч</small><b>${sp.name}</b>${sp.text ? html`<span>${sp.text}</span>` : ''}</span>
+      <span class="sp-cta">${sp.cta} ${icon('external')}</span>
+    </a>`;
+  };
 
   const rulesModal = (kind) => {
     const g = GAMES[kind];
@@ -1710,6 +1734,14 @@
               <span class="btn btn-gold btn-sm">Тоглох ${icon('arrow')}</span>
             </div>
           </a>
+          <a class="duel-card" href="#/g/duel">
+            <span class="gc-ic gc-duel">${icon('swords')}</span>
+            <span class="gc-main"><b>Дуэль — 1 vs 1 мөрий</b><small>${r.duels && r.duels.open
+              ? `${r.duels.open} нээлттэй сорилт · хамгийн их ${money(r.duels.top)}`
+              : 'Найзаа мөрийтэй сорь, ялагч санг авна'}</small></span>
+            ${r.duels && r.duels.waiting ? html`<span class="chip chip-xs chip-live"><span class="pulse-dot"></span> ${r.duels.waiting}</span>` : icon('right', 'chev')}
+          </a>
+          ${sponsorCard()}
           <div class="game-grid">${MINI_ORDER.map(tile)}</div>
           <div class="game-list">
             <a class="game-card gc-practice" href="#/archive"><span class="gc-ic">${icon('grid')}</span><span class="gc-main"><b>Дасгал</b><small>Өдрийн үгийн дүрмээр нэмэлт үг</small></span>${icon('right', 'chev')}</a>
@@ -1827,9 +1859,14 @@
     el() { return $('#page-g'); },
     current() { return this.game === 'blitz' ? Blitz : this; },
 
-    async open(kind) {
+    async open(kind, code = null) {
       Blitz.stop();
-      if (kind === 'blitz') { this.game = 'blitz'; Blitz.open(); return; }
+      if (kind === 'blitz' || kind === 'duel') {
+        this.game = 'blitz';
+        if (kind === 'duel') Blitz.openDuel(code ? String(code).toUpperCase() : null);
+        else Blitz.open();
+        return;
+      }
       if (!GAMES[kind]) { Router.nav('games'); return; }
       this.game = kind;
       this.s = null;
@@ -1894,7 +1931,29 @@
     render() {
       const s = this.s;
       const body = this[s.game](s);
-      this.el().innerHTML = html`${miniHead(s.game, s.completed ? '' : this.status())}${body}${s.completed ? this.result(s) : ''}`;
+      this.el().innerHTML = html`${miniHead(s.game, s.completed ? '' : this.status())}${this.reviveBar(s)}${body}${s.completed ? this.result(s) : ''}`;
+    },
+
+    reviveBar(s) {
+      if (s.completed || !s.revive || !s.revive.available) return '';
+      const what = { hangman: '+2 амь', anagram: '+1 оролдлого', duo: '+2 оролдлого' }[s.game];
+      return html`<div class="revive-bar" role="status">
+        ${icon('heart')}<span><b>Бараг дууслаа!</b> ${what} авч үргэлжлүүлэх үү?</span>
+        <button class="btn btn-gold btn-xs" type="button" data-action="mini-revive">${what} · ${money(s.revive.price)}</button>
+      </div>`;
+    },
+
+    async revive() {
+      const s = this.s;
+      if (!s || !s.revive || !s.revive.available) return;
+      const ok = await Modal.confirm({ title: 'Сэргээх', message: html`Хэтэвчнээс <b>${money(s.revive.price)}</b> хасагдана. Тоглоом бүрт нэг л удаа сэргээнэ.`, confirmText: `Төлөх — ${money(s.revive.price)}` });
+      if (!ok) return;
+      const bal = App.user ? App.user.balance : null;
+      const r = await this.move({ revive: true });
+      if (!r) return;
+      if (bal != null) App.setBalance(bal - s.revive.price);
+      Toast.show('Сэргээлээ! Амжилт хүсье 💪', 'success');
+      this.set(r.game);
     },
 
     status() {
@@ -2174,7 +2233,7 @@
           <button class="btn btn-primary" type="button" data-action="mini-start">${icon('refresh')} Дахин тоглох</button>
         </div>
         <p class="muted small">Enter — дахин тоглох</p>
-      </div>`;
+      </div>${sponsorCard()}`;
     },
 
     redrawBuilder() {
@@ -2287,8 +2346,190 @@
     el() { return $('#page-g'); },
     stop() { clearInterval(this.timer); this.timer = null; },
 
+    /* ─── Дуэль ─── */
+    mode: 'arena',
+    duels: null,
+    stake: 1000,
+
+    async openDuel(code = null) {
+      this.stop();
+      this.mode = 'duel';
+      this.run = null;
+      const el = this.el();
+      el.innerHTML = html`${miniHead('duel')}${skeleton(4)}`;
+      try {
+        const r = await Api.get('duels');
+        if (Mini.game !== 'blitz' || this.mode !== 'duel') return;
+        this.duels = r;
+        App.setBalance(r.balance);
+        if (!r.stakes.includes(this.stake)) this.stake = r.stakes[Math.min(1, r.stakes.length - 1)];
+        if (r.run) { this.begin(r.run); return; }
+        if (code) {
+          const d = await Api.get('duel', { code });
+          this.duelInvite(d.duel);
+          return;
+        }
+        this.duelLobby();
+      } catch (e) {
+        el.innerHTML = html`${miniHead('duel')}${errorBox(e, 'g')}`;
+      }
+    },
+
+    duelStatus(d) {
+      const left = Math.max(0, Math.round((new Date(d.expires_at.replace(' ', 'T') + '+08:00') - Date.now()) / 3600000));
+      switch (d.status) {
+        case 'open': return d.role === 'creator' ? html`<span class="badge badge-warn">Өрсөлдөгч хүлээж байна</span><small class="muted"> · ${left} цаг үлдсэн</small>` : html`<span class="badge">Нээлттэй</span>`;
+        case 'active': return html`<span class="badge badge-warn">Тоглогдож байна</span>`;
+        case 'expired': return html`<span class="badge">Хугацаа дууссан — буцаасан</span>`;
+        default:
+          if (d.result === 'won') return html`<span class="badge badge-good">Ялсан +${money(d.payout)}</span>`;
+          if (d.result === 'tie') return html`<span class="badge">Тэнцсэн +${money(d.payout)}</span>`;
+          return html`<span class="badge badge-bad">Ялагдсан</span>`;
+      }
+    },
+
+    duelRow(d) {
+      const opp = d.role === 'creator' ? d.opponent : d.creator;
+      const score = d.my_score != null ? html`<b>${fmt(d.my_score)}</b>${d.their_score != null ? html` : ${fmt(d.their_score)}` : ''}` : '';
+      return html`<li class="list-item duel-item">
+        ${opp ? avatar(opp.avatar, opp.name, 36) : html`<span class="li-ic">${icon('swords')}</span>`}
+        <span class="li-main">
+          <span class="li-title">${opp ? opp.name : 'Өрсөлдөгч хүлээж байна'}</span>
+          <span class="li-sub">${money(d.stake)} мөрий · ${this.duelStatus(d)}</span>
+        </span>
+        <span class="li-end">${score}${d.status === 'open' && d.role === 'creator'
+          ? html`<button class="btn btn-ghost btn-xs" type="button" data-action="duel-share" data-code="${d.code}" data-stake="${d.stake}">${icon('share')} Урих</button>` : ''}</span>
+      </li>`;
+    },
+
+    duelResultCard(run, d) {
+      if (!d) return '';
+      if (d.status === 'done') {
+        const t = { won: ['Та ялалаа! 🎉', 'won'], lost: ['Энэ удаа ялагдлаа', ''], tie: ['Тэнцлээ!', ''] }[d.result] || ['Дууслаа', ''];
+        return html`<div class="card mini-result ${t[1]}" aria-live="polite">
+          <div class="mr-title">${t[0]}</div>
+          <div class="duel-score"><span><small>Та</small><b>${fmt(d.my_score)}</b></span><span class="vs">VS</span><span><small>${(d.role === 'creator' ? d.opponent : d.creator)?.name || 'Өрсөлдөгч'}</small><b>${fmt(d.their_score)}</b></span></div>
+          ${d.result !== 'lost' ? html`<div class="mr-score">+${money(d.payout)}</div>` : html`<p class="muted small">Дахин сорьж хожоорой!</p>`}
+        </div>`;
+      }
+      return html`<div class="card mini-result" aria-live="polite">
+        <div class="mr-title">Таны оноо: ${fmt(run ? run.score : d.my_score)}</div>
+        <p class="muted">${d.status === 'open'
+          ? 'Дуэль бэлэн боллоо. Хэн нэгэн сорилтыг хүлээж аваад тоглож дуусмагц үр дүн гарна.'
+          : 'Өрсөлдөгч тоглож дуусмагц үр дүн гарч, мөнгө автоматаар хэтэвчинд орно.'}</p>
+        ${d.status === 'open' ? html`<button class="btn btn-gold btn-block" type="button" data-action="duel-share" data-code="${d.code}" data-stake="${d.stake}">${icon('share')} Найзаа сорих — холбоос илгээх</button>` : ''}
+      </div>`;
+    },
+
+    duelLobby(last = null) {
+      const r = this.duels, c = App.config;
+      const prize = (s) => s * 2 - Math.floor(s * 2 * (r.rake || 0) / 100);
+      this.el().innerHTML = html`${miniHead('duel', r.stats.played ? html`<span class="chip"><span><b>${r.stats.won}</b>/${r.stats.played} ялалт</span></span>` : '')}
+        ${last ? this.duelResultCard(last.run, last.duel) : ''}
+        <div class="card duel-new">
+          <div class="duel-hero">${icon('swords')}<div><b>Мөрийтэй 1 vs 1</b><small>Хоёулаа яг ижил холимог үгсийг 60 секундэд тайлна. Их оноотой нь санг авна.</small></div></div>
+          <div class="field-label">Мөрийн дүн</div>
+          <div class="stake-grid" role="radiogroup" aria-label="Мөрийн дүн">${r.stakes.map((s) => html`<button type="button" role="radio" class="stake ${s === this.stake ? 'active' : ''}" aria-checked="${String(s === this.stake)}" data-stake="${s}">${money(s)}</button>`)}</div>
+          <div class="duel-prize"><span>Ялагч авна</span><b>${money(prize(this.stake))}</b></div>
+          <button class="btn btn-gold btn-block btn-lg" type="button" data-action="duel-create">${icon('swords')} Дуэль үүсгээд тоглох</button>
+          <p class="muted small center">Шимтгэл ${r.rake}%. Тэнцвэл сангаа хуваана. ${c.duel_expire_hours || 24} цагт хэн ч хүлээж авахгүй бол мөрий бүтнээрээ буцна.</p>
+        </div>
+        <h2 class="sub-h">Нээлттэй сорилтууд</h2>
+        ${r.open.length ? html`<ul class="list">${r.open.map((d) => html`<li class="list-item">
+            ${avatar(d.creator.avatar, d.creator.name, 38)}
+            <span class="li-main"><span class="li-title">${d.creator.name}</span><span class="li-sub">Мөрий ${money(d.stake)} · ялагч ${money(d.prize)}</span></span>
+            <button class="btn btn-primary btn-sm" type="button" data-action="duel-accept" data-code="${d.code}" data-stake="${d.stake}" data-name="${d.creator.name}">${icon('swords')} Сорих</button>
+          </li>`)}</ul>`
+          : html`<p class="muted small">Одоогоор нээлттэй сорилт алга. Өөрөө дуэль үүсгээд найзаа урь!</p>`}
+        ${r.mine.length ? html`<h2 class="sub-h">Миний дуэлүүд</h2><ul class="list">${r.mine.map((d) => this.duelRow(d))}</ul>` : ''}
+        ${r.stats.earned ? html`<p class="muted small center">Дуэлээс нийт хожсон: <b>${money(r.stats.earned)}</b></p>` : ''}
+        ${sponsorCard()}`;
+    },
+
+    duelInvite(d) {
+      if (d.role && d.status === 'done') {
+        this.el().innerHTML = html`${miniHead('duel')}${this.duelResultCard(null, d)}<a class="btn btn-ghost btn-block" href="#/g/duel">Бүх дуэль</a>`;
+        return;
+      }
+      const mineOrClosed = d.role || d.status !== 'open';
+      this.el().innerHTML = html`${miniHead('duel')}
+        <div class="card duel-invite">
+          ${avatar(d.creator.avatar, d.creator.name, 72)}
+          <h2>${d.role === 'creator' ? 'Таны дуэль' : html`${d.creator.name} таныг сорьж байна!`}</h2>
+          <div class="duel-prize big"><span>Мөрий ${money(d.stake)}</span><b>Ялагч ${money(d.prize)}</b></div>
+          ${mineOrClosed
+            ? html`${d.role ? this.duelStatus(d) : html`<p class="muted">Энэ сорилтыг өөр хүн аль хэдийн хүлээж авсан эсвэл хугацаа нь дууссан байна.</p>`}
+              ${d.status === 'open' && d.role === 'creator' ? html`<button class="btn btn-gold btn-block" type="button" data-action="duel-share" data-code="${d.code}" data-stake="${d.stake}">${icon('share')} Холбоос илгээх</button>` : ''}`
+            : html`<p class="muted">Хоёулаа яг ижил холимог үгсийг 60 секундэд тайлна. Өрсөлдөгчийн оноо тоглож дуусахаас өмнө харагдахгүй.</p>
+              <button class="btn btn-gold btn-block btn-lg" type="button" data-action="duel-accept" data-code="${d.code}" data-stake="${d.stake}" data-name="${d.creator.name}">${icon('swords')} Сорилт авах — ${money(d.stake)}</button>`}
+          <a class="btn btn-ghost btn-block" href="#/g/duel">Бүх дуэль</a>
+        </div>`;
+    },
+
+    async duelCreate(btn) {
+      if (this.busy) return;
+      const s = this.stake, r = this.duels;
+      const prize = s * 2 - Math.floor(s * 2 * (r.rake || 0) / 100);
+      const ok = await Modal.confirm({
+        title: 'Дуэль үүсгэх',
+        message: html`Хэтэвчнээс <b>${money(s)}</b> хасагдана. Та одоо шууд <b>60 секунд</b> тоглоно.<br><br>Өрсөлдөгч таны оноог мэдэхгүйгээр яг ижил үгсийг тоглоно. Ялбал <b>${money(prize)}</b> авна.`,
+        confirmText: 'Эхлэх',
+      });
+      if (!ok) return;
+      this.busy = true;
+      if (btn) btn.disabled = true;
+      try {
+        const res = await Api.post('duel_create', { stake: s });
+        App.setBalance(res.balance);
+        this.pendingDuel = res.duel;
+        this.begin(res.run);
+      } catch (e) {
+        moneyError(e);
+      } finally {
+        this.busy = false;
+        if (btn && btn.isConnected) btn.disabled = false;
+      }
+    },
+
+    async duelAccept(b) {
+      if (this.busy) return;
+      const ok = await Modal.confirm({
+        title: 'Сорилт авах',
+        message: html`<b>${b.dataset.name}</b>-ийн сорилт. Хэтэвчнээс <b>${money(Number(b.dataset.stake))}</b> хасагдаж, та шууд <b>60 секунд</b> тоглоно. Бэлэн үү?`,
+        confirmText: 'Тоглох',
+      });
+      if (!ok) return;
+      this.busy = true;
+      b.disabled = true;
+      try {
+        const res = await Api.post('duel_accept', { code: b.dataset.code });
+        App.setBalance(res.balance);
+        this.pendingDuel = res.duel;
+        this.begin(res.run);
+      } catch (e) {
+        moneyError(e);
+        if (e.code === 'duel_taken') this.openDuel();
+      } finally {
+        this.busy = false;
+        if (b.isConnected) b.disabled = false;
+      }
+    },
+
+    duelShare(b) {
+      const stake = Number(b.dataset.stake);
+      const link = `${(App.config.app_url || location.origin + '/').replace(/\/$/, '')}/#/g/duel/${b.dataset.code}`;
+      shareOrCopy(`⚔️ Би чамайг Үг Таа дээр ${money(stake)}-ийн мөрийтэй үгийн дуэльд урьж байна! Чадах уу?\n${link}`, 'Үг Таа — Дуэль');
+    },
+
+    pickStake(s) {
+      if (!this.duels || this.mode !== 'duel' || this.run) return;
+      this.stake = s;
+      this.duelLobby();
+    },
+
     async open() {
       this.stop();
+      this.mode = 'arena';
       this.run = null;
       const el = this.el();
       el.innerHTML = html`${miniHead('blitz')}${skeleton(4)}`;
@@ -2338,7 +2579,8 @@
             <span class="li-end"><b>${fmt(x.best)}</b><small>оноо</small></span>
           </li>`)}</ol>` : html`<p class="muted small center">Өнөөдөр хэн ч оноотой тоглоогүй байна — эхний байрыг эзэл!</p>`}
         ${a.yesterday.length ? html`<h2 class="sub-h">Өчигдрийн ялагчид</h2>
-          <div class="card"><ul class="winners">${a.yesterday.map((w, i) => html`<li><span class="pod-medal sm m${i + 1}">${i + 1}</span>${avatar(w.avatar_url, w.username, 26)}<span class="w-name">${w.username}</span><b>+${money(w.prize_won)}</b></li>`)}</ul></div>` : ''}`;
+          <div class="card"><ul class="winners">${a.yesterday.map((w, i) => html`<li><span class="pod-medal sm m${i + 1}">${i + 1}</span>${avatar(w.avatar_url, w.username, 26)}<span class="w-name">${w.username}</span><b>+${money(w.prize_won)}</b></li>`)}</ul></div>` : ''}
+        ${sponsorCard()}`;
     },
 
     async start(ranked, btn) {
@@ -2394,7 +2636,8 @@
 
     render() {
       const r = this.run;
-      this.el().innerHTML = html`${miniHead('blitz', html`<span class="chip ${r.ranked ? 'chip-gold' : ''}">${r.ranked ? 'Оноотой' : 'Дасгал'}</span>`)}
+      const duel = this.mode === 'duel';
+      this.el().innerHTML = html`${miniHead(duel ? 'duel' : 'blitz', html`<span class="chip ${r.ranked ? 'chip-gold' : ''}">${duel ? 'Дуэль' : r.ranked ? 'Оноотой' : 'Дасгал'}</span>`)}
         <div class="blitz-hud">
           <div class="bh-time"><b id="blitz-time">${Math.ceil(r.left)}</b><small>сек</small></div>
           <div class="bh-score"><b id="blitz-score">${fmt(r.score)}</b><small>оноо · ${r.solved} үг</small></div>
@@ -2476,6 +2719,17 @@
       try {
         const r = await Api.post('blitz_finish', { id });
         this.arena = r.arena;
+        if (r.balance != null) App.setBalance(r.balance);
+        if (this.mode === 'duel') {
+          if (Router.current === 'g' && Mini.game === 'blitz') {
+            try { this.duels = await Api.get('duels'); App.setBalance(this.duels.balance); } catch { /* өмнөх жагсаалтаар харуулна */ }
+            this.duelLobby({ run: r.run, duel: r.duel || this.pendingDuel });
+            window.scrollTo(0, 0);
+            if (r.duel && r.duel.result === 'won') setTimeout(() => Confetti.burst(), 200);
+          }
+          this.pendingDuel = null;
+          return;
+        }
         if (Router.current === 'g' && Mini.game === 'blitz') {
           this.lobby(r.run);
           if (r.run.solved > 0) setTimeout(() => Confetti.burst(), 200);
@@ -2498,7 +2752,7 @@
     enter() { if (this.b && Builder.full(this.b)) this.answer(); },
   };
 
-  Pages.g = { show(args) { Mini.open(args[0]); } };
+  Pages.g = { show(args) { Mini.open(args[0], args[1]); } };
 
   /* ── Хэтэвч ────────────────────────────────────────────── */
   const TX = {
@@ -2507,6 +2761,7 @@
     tournament_prize: ['trophy', 'Тэмцээний шагнал'], tournament_refund: ['refresh', 'Тэмцээний буцаалт'],
     premium: ['crown', 'Premium'], admin_adjust: ['shield', 'Засвар'],
     hint: ['bulb', 'Сэжүүр'], mini_play: ['gamepad', 'Нэмэлт тоглолт'], blitz_fee: ['zap', 'Blitz хураамж'],
+    duel_stake: ['swords', 'Дуэлийн мөрий'], duel_win: ['trophy', 'Дуэль ялсан'], duel_refund: ['refresh', 'Дуэлийн буцаалт'], revive: ['heart', 'Сэргээх'],
     blitz_prize: ['trophy', 'Blitz шагнал'], blitz_refund: ['refresh', 'Blitz буцаалт'], topup: ['banknote', 'Хэтэвч цэнэглэлт'], tournament: ['target', 'Тэмцээн'], deposit: ['wallet', 'Гүйлгээ'],
   };
   const WD_STATUS = { pending: ['Хүлээгдэж байна', 'warn'], approved: ['Шилжүүлсэн', 'good'], rejected: ['Цуцлагдсан', 'bad'] };
@@ -2875,11 +3130,28 @@
 
   /* ── Premium ───────────────────────────────────────────── */
   Pages.premium = {
+    plan: 'month',
+    planInfo(plan) {
+      const c = App.config;
+      return plan === 'week' ? { price: c.premium_week_price, days: c.premium_week_days } : { price: c.premium_price, days: c.premium_days };
+    },
+
     show(args, fresh = false) {
       if (!fresh) Api.get('me').then((r) => { App.patchUser(r.user); if (Router.current === 'premium') this.show(args, true); }).catch(() => {});
       const el = $('#page-premium');
       const u = App.user, c = App.config;
-      const short = Math.max(0, c.premium_price - u.balance);
+      if (!c.premium_week_price) this.plan = 'month';
+      const cur = this.planInfo(this.plan);
+      const short = Math.max(0, cur.price - u.balance);
+      const perDay = (p) => Math.round(p.price / Math.max(1, p.days));
+      const save = c.premium_week_price ? Math.round((1 - perDay(this.planInfo('month')) / perDay(this.planInfo('week'))) * 100) : 0;
+      const planCard = (key, title) => {
+        const p = this.planInfo(key);
+        return html`<button type="button" class="plan ${this.plan === key ? 'active' : ''}" role="radio" aria-checked="${String(this.plan === key)}" data-action="premium-plan" data-plan="${key}">
+          ${key === 'month' && save > 0 ? html`<span class="plan-badge">${save}% хэмнэлт</span>` : ''}
+          <b>${title}</b><span class="plan-price">${money(p.price)}</span><small>${p.days} хоног · өдөрт ${money(perDay(p))}</small>
+        </button>`;
+      };
       const perks = [
         c.premium_multiplier > 1 && ['trophy', `${c.premium_multiplier}× шагнал`, `Өдрийн үг таавал ${money(c.reward_amount * c.premium_multiplier)}`],
         ['target', 'Тэмцээнд үнэгүй', `${money(c.tournament_fee)} хураамжгүйгээр оролцоно`],
@@ -2893,29 +3165,33 @@
         <div class="prem-hero">
           <div class="prem-crown">${icon('crown')}</div>
           <h1>Premium</h1>
-          <div class="prem-price">${money(c.premium_price)} <small>/ ${c.premium_days} хоног</small></div>
+          <div class="prem-price">${money(cur.price)} <small>/ ${cur.days} хоног</small></div>
           ${u.is_premium ? html`<span class="chip chip-gold">${icon('check')} Идэвхтэй · ${fmtDate(u.premium_expires_at)} хүртэл</span>` : ''}
         </div>
-        <ul class="perks">${perks.filter(Boolean).map(([ic, t, s]) => html`<li><span class="perk-ic">${icon(ic)}</span><span><b>${t}</b><small>${s}</small></span></li>`)}</ul>
+        ${c.premium_week_price ? html`<div class="plans" role="radiogroup" aria-label="Хугацаа">${planCard('week', '7 хоног')}${planCard('month', '30 хоног')}</div>` : ''}
         <div class="card">
           <div class="pay-row"><span class="muted">Таны үлдэгдэл</span><b>${money(u.balance)}</b></div>
-          <div class="pay-row"><span class="muted">Төлбөр</span><b>− ${money(c.premium_price)}</b></div>
-          <button class="btn btn-gold btn-block btn-lg" type="button" data-action="buy-premium" ${short > 0 ? raw('disabled') : ''}>
-            ${short > 0 ? `Үлдэгдэл хүрэлцэхгүй (${money(short)} дутуу)` : u.is_premium ? `${c.premium_days} хоногоор сунгах` : 'Premium авах'}</button>
+          <div class="pay-row"><span class="muted">Төлбөр</span><b>− ${money(cur.price)}</b></div>
+          ${short > 0
+            ? html`<a class="btn btn-gold btn-block btn-lg" href="#/topup">${icon('banknote')} Хэтэвч цэнэглэх (${money(short)} дутуу)</a>`
+            : html`<button class="btn btn-gold btn-block btn-lg" type="button" data-action="buy-premium">${u.is_premium ? `${cur.days} хоногоор сунгах` : 'Premium авах'}</button>`}
           <p class="muted small center">Төлбөрийг хэтэвчний үлдэгдлээс хасна. Сунгавал хугацаа дээр нь нэмэгдэнэ.</p>
-        </div>`;
+        </div>
+        <h2 class="sub-h">Premium-ийн давуу талууд</h2>
+        <ul class="perks">${perks.filter(Boolean).map(([ic, t, s]) => html`<li><span class="perk-ic">${icon(ic)}</span><span><b>${t}</b><small>${s}</small></span></li>`)}</ul>`;
     },
 
     async buy() {
       const c = App.config;
+      const p = this.planInfo(this.plan);
       const ok = await Modal.confirm({
         title: 'Premium',
-        message: html`Хэтэвчнээс <b>${money(c.premium_price)}</b> хасаж ${c.premium_days} хоногийн Premium ${App.user.is_premium ? 'сунгах' : 'идэвхжүүлэх'} үү?`,
+        message: html`Хэтэвчнээс <b>${money(p.price)}</b> хасаж ${p.days} хоногийн Premium ${App.user.is_premium ? 'сунгах' : 'идэвхжүүлэх'} үү?`,
         confirmText: 'Төлөх',
       });
       if (!ok) return;
       try {
-        const r = await Api.post('premium_buy');
+        const r = await Api.post('premium_buy', { plan: this.plan });
         App.setUser(r.user);
         Toast.show(r.message, 'success');
         Confetti.burst();
@@ -3006,6 +3282,12 @@
           </div>
           <h3 class="sub-h">Сүүлийн 14 хоногийн тоглолт</h3>
           <div class="card">${columnChart(r.series)}</div>
+          ${r.revenue ? html`<h3 class="sub-h">Орлогын задаргаа (30 хоног)</h3>
+          <div class="card rev-card">
+            ${r.revenue.map((x) => html`<div class="rev-row"><span>${x.label}</span><b class="${x.amount > 0 ? 'pos' : x.amount < 0 ? 'neg' : 'muted'}">${x.amount > 0 ? '+' : ''}${money(x.amount)}</b></div>`)}
+            <div class="rev-row rev-total"><span>Цэвэр ашиг</span><b class="${r.profit >= 0 ? 'pos' : 'neg'}">${money(r.profit)}</b></div>
+            <p class="muted small">Сантай тоглоомуудын (Дуэль, Blitz, Тэмцээн) хувьд зөвхөн шийдэгдсэн хэсгийн шимтгэлийг тооцно.</p>
+          </div>` : ''}
           <h3 class="sub-h">Санхүү</h3>
           <div class="stat-grid stat-grid-3">
             ${tile('Хэрэглэгчдийн нийт үлдэгдэл', money(s.liability), 'Таны өр төлбөр')}
@@ -3102,6 +3384,19 @@
             <button class="btn btn-primary" type="submit">Хадгалах</button>
           </form>
 
+          <form class="card form" data-form="settings-sponsor" novalidate>
+            <h3 class="card-h card-h-ic">${icon('star')} Ивээн тэтгэгч (зарын байр)</h3>
+            <p class="form-intro">Компани, дэлгүүрт зарын байр зарж орлого ол. Баннер Тоглоом цэс, тоглоомын дүн, Blitz, Дуэлийн хуудсанд харагдана.</p>
+            <label class="set-row"><span><b>Баннер харуулах</b><small>Сүүлийн 30 хоногт: ${fmt(s.sponsor_stats ? s.sponsor_stats.views : 0)} үзэлт · ${fmt(s.sponsor_stats ? s.sponsor_stats.clicks : 0)} дарсан</small></span>
+              <input type="checkbox" class="switch" name="sponsor_enabled" ${s.sponsor_enabled ? raw('checked') : ''}></label>
+            <label class="field"><span class="field-label">Нэр</span><input class="input" name="sponsor_name" value="${s.sponsor_name}" maxlength="60" placeholder="Жишээ: Номин супермаркет"></label>
+            <label class="field"><span class="field-label">Тайлбар</span><input class="input" name="sponsor_text" value="${s.sponsor_text}" maxlength="160" placeholder="Жишээ: Үг Таа тоглогчдод 10% хямдрал"></label>
+            <label class="field"><span class="field-label">Холбоос (https://)</span><input class="input mono" name="sponsor_url" value="${s.sponsor_url}" placeholder="https://..."></label>
+            <label class="field"><span class="field-label">Лого/зураг (https://, заавал биш)</span><input class="input mono" name="sponsor_image" value="${s.sponsor_image}" placeholder="https://.../logo.png"></label>
+            <label class="field"><span class="field-label">Товчны бичиг</span><input class="input" name="sponsor_cta" value="${s.sponsor_cta}" maxlength="24" placeholder="Дэлгэрэнгүй"></label>
+            <button class="btn btn-primary" type="submit">Хадгалах</button>
+          </form>
+
           <form class="card form" data-form="settings-telegram" novalidate>
             <h3 class="card-h card-h-ic">${icon('send')} Telegram мэдэгдэл</h3>
             <ol class="howto">
@@ -3176,9 +3471,10 @@
     },
 
     async saveSettings(form, quiet = false) {
-      const names = form.dataset.form === 'settings-deposit'
-        ? ['deposit_enabled', 'deposit_bank', 'deposit_account_name', 'deposit_account_number', 'deposit_iban', 'deposit_min', 'deposit_max']
-        : ['telegram_bot_token', 'telegram_chat_id', 'telegram_admin_ids', 'notify_withdrawals'];
+      const names = {
+        'settings-deposit': ['deposit_enabled', 'deposit_bank', 'deposit_account_name', 'deposit_account_number', 'deposit_iban', 'deposit_min', 'deposit_max'],
+        'settings-sponsor': ['sponsor_enabled', 'sponsor_name', 'sponsor_text', 'sponsor_url', 'sponsor_image', 'sponsor_cta'],
+      }[form.dataset.form] || ['telegram_bot_token', 'telegram_chat_id', 'telegram_admin_ids', 'notify_withdrawals'];
       const body = this.formValues(form, names);
       if ('deposit_min' in body) { body.deposit_min = parseInt(body.deposit_min, 10) || 0; body.deposit_max = parseInt(body.deposit_max, 10) || 0; }
       const r = await Api.post('admin_settings_save', body);
@@ -3478,6 +3774,11 @@
     'mini-submit': () => Mini.submitAnagram(),
     'mini-hint': () => Mini.hint(),
     'mini-rules': (b) => rulesModal(b.dataset.kind),
+    'mini-revive': () => Mini.revive(),
+    'duel-create': (b) => Blitz.duelCreate(b),
+    'duel-accept': (b) => Blitz.duelAccept(b),
+    'duel-share': (b) => Blitz.duelShare(b),
+    'premium-plan': (b) => { Pages.premium.plan = b.dataset.plan; Pages.premium.show(null, true); },
     'ws-giveup': () => Mini.giveUp(),
     'bld-shuffle': () => { const c = Mini.current(); if (c.b) { Builder.shuffle(c.b); c.redrawBuilder(); } },
     'bld-clear': () => { const c = Mini.current(); if (c.b) { Builder.clear(c.b); c.redrawBuilder(); } },
@@ -3514,6 +3815,7 @@
       if (act && actions[act.dataset.action]) { e.preventDefault(); actions[act.dataset.action](act); return; }
       const cp = t.closest('[data-copy]');
       if (cp) { copyText(cp.dataset.copy); return; }
+      if (t.closest('[data-sponsor]')) { Api.post('sponsor_click').catch(() => {}); return; }
       const retry = t.closest('[data-retry]');
       if (retry) { Router.go(); return; }
       const lb = t.closest('[data-period]');
@@ -3565,7 +3867,7 @@
       e.preventDefault();
       const A = Pages.admin;
       if (kind === 'topup-create') { Pages.topup.create(f); return; }
-      if (kind === 'settings-deposit' || kind === 'settings-telegram') {
+      if (kind === 'settings-deposit' || kind === 'settings-telegram' || kind === 'settings-sponsor') {
         const btn = $('button[type=submit]', f);
         btn.disabled = true;
         try { await A.saveSettings(f); } catch (err) { Toast.error(err); } finally { btn.disabled = false; }
@@ -3606,6 +3908,8 @@
       if (l) { Mini.letter(l.dataset.letter); return; }
       const ch = t.closest('[data-choice]');
       if (ch && !ch.disabled) { Mini.choose(Number(ch.dataset.choice), ch); return; }
+      const sk = t.closest('[data-stake]');
+      if (sk && !sk.dataset.action) { Blitz.pickStake(Number(sk.dataset.stake)); return; }
       const dk = t.closest('[data-duo-key]');
       if (dk) { Mini.duoKey(dk.dataset.duoKey); return; }
       const tf = t.closest('[data-truth]');
@@ -3759,6 +4063,7 @@
     const cfg = Api.get('config').then((r) => {
       App.config = { ...DEFAULT_CONFIG, ...r.config };
       App.publicToday = r.today;
+      App.sponsor = r.sponsor || null;
       Clock.sync(r.time);
     }).catch(() => {});
 

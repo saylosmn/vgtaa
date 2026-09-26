@@ -101,6 +101,8 @@ define('DAILY_WINNER_CAP', 10);
 
 define('PREMIUM_PRICE', 20000);
 define('PREMIUM_DAYS', 30);
+define('PREMIUM_WEEK_PRICE', 6000);         // Туршиж үзэх 7 хоногийн Premium
+define('PREMIUM_WEEK_DAYS', 7);
 define('TOURNAMENT_FEE', 5000);
 define('TOURNAMENT_SPLIT', [50, 30, 20]);   // 1, 2, 3-р байрны хувь (%)
 define('TOURNAMENT_RAKE', 20);              // Хураамжийн хэдэн хувь сайтад үлдэх вэ (%). Үлдсэн нь шагналын санд
@@ -124,6 +126,14 @@ define('BLITZ_FEE', 1000);
 define('BLITZ_RAKE', 25);
 define('BLITZ_SPLIT', [50, 30, 20]);
 define('BLITZ_PREMIUM_FREE', 1);            // Premium хэрэглэгч өдөрт хэдэн оноотой тоглолт үнэгүй
+/* Дуэль: 1 vs 1 мөрийтэй Blitz. Ялагч хоёр мөрийн нийлбэрээс DUEL_RAKE%-ийг хасаад авна.
+ * 24 цагт хэн ч хүлээж авахгүй бол мөрийг бүтнээр буцаана. */
+define('DUEL_STAKES', [500, 1000, 2000, 5000, 10000]);
+define('DUEL_RAKE', 10);
+define('DUEL_EXPIRE_HOURS', 24);
+define('DUEL_MAX_OPEN', 3);                 // Нэг хүн зэрэг хэдэн нээлттэй дуэль үүсгэж болох
+/* Сэргээх: Дүүжлүүрт +2 амь, Үг холихт +1 оролдлого, Хос үгэнд +2 оролдлого (тоглоом бүрт нэг удаа) */
+define('REVIVE_PRICE', 300);
 
 define('MIN_WITHDRAWAL', 20000);
 define('MAX_WITHDRAWAL', 2000000);
